@@ -1,6 +1,6 @@
 {
   "name": "Jornada da Meta",
-  "description": "Jogo interativo de conquista de metas financeiras com escalada de escadaria e personagem dinâmico animado.",
+  "description": "App completo de controle financeiro (Minhas Finanças) com transações, bancos, investimentos, relatórios e o jogo interativo Jornada da Meta.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

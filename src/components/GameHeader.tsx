@@ -41,22 +41,22 @@ export default function GameHeader({
   return (
     <header className="space-y-4">
       {/* Top Navbar Row */}
-      <div className="glass-elevated rounded-2xl px-4 py-3 sm:px-6 sm:py-3.5 flex items-center justify-between gap-3 border border-white/10">
+      <div className="cyber-card rounded-2xl px-4 py-3 sm:px-6 sm:py-3.5 flex items-center justify-between gap-3 hud-border-corners">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-xl shadow-lg shadow-amber-400/30 text-slate-950 font-black">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-xl shadow-lg shadow-amber-400/30 text-slate-950 font-black ring-1 ring-amber-300/40 animate-pulse">
             🏆
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
-                Jornada da Meta
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white font-mono flex items-center gap-1.5">
+                Jornada da Meta <span className="text-amber-400 neon-text-gold">OS</span>
               </h1>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-bold text-[10px] border border-amber-400/30">
-                PRO
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono font-bold text-[10px] border border-amber-400/40">
+                PRO 60FPS
               </span>
             </div>
-            <p className="text-[11px] text-white/50">Escale a escadaria da liberdade financeira</p>
+            <p className="text-[11px] text-cyan-400/70 font-mono">Escale a escadaria da liberdade financeira quântica</p>
           </div>
         </div>
 
