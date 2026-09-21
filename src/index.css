@@ -1,0 +1,301 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .number-display {
+    font-variant-numeric: tabular-nums;
+  }
+  .glass-elevated {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  }
+  .btn-primary {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+  }
+}
+
+/* Animations for Character and Game Canvas */
+@keyframes hero-idle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes hero-struggle {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(3px) rotate(1deg); }
+}
+
+@keyframes hero-walk {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-4px) rotate(-1deg); }
+  50% { transform: translateY(-7px) rotate(0deg); }
+  75% { transform: translateY(-4px) rotate(1deg); }
+}
+
+@keyframes hero-run {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-7px) rotate(-2deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+  75% { transform: translateY(-7px) rotate(3deg); }
+}
+
+@keyframes hero-turbo {
+  0%, 100% { transform: translateY(0) scale(1.05) rotate(-1deg); }
+  25% { transform: translateY(-10px) scale(1.08) rotate(1deg); }
+  50% { transform: translateY(-16px) scale(1.1) rotate(0deg); }
+  75% { transform: translateY(-10px) scale(1.08) rotate(-1deg); }
+}
+
+@keyframes hero-victory {
+  0%, 100% { transform: translateY(0) scale(1.05); }
+  30% { transform: translateY(-18px) scale(1.15); }
+  60% { transform: translateY(-6px) scale(1.08); }
+  80% { transform: translateY(-14px) scale(1.12); }
+}
+
+@keyframes character-bounce {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.15) translateY(-14px); }
+}
+
+@keyframes arm-swing {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(14deg); }
+}
+
+@keyframes arm-run {
+  0%, 100% { transform: rotate(-35deg); }
+  50% { transform: rotate(35deg); }
+}
+
+@keyframes arm-victory {
+  0%, 100% { transform: rotate(-45deg); }
+  50% { transform: rotate(-75deg); }
+}
+
+@keyframes leg-walk {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(10deg); }
+}
+
+@keyframes leg-run {
+  0%, 100% { transform: rotate(-24deg); }
+  50% { transform: rotate(24deg); }
+}
+
+@keyframes tie-flutter {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+
+@keyframes crown-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(4deg); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-35deg); }
+  50% { transform: rotate(-10deg); }
+  75% { transform: rotate(-35deg); }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(18deg); }
+}
+
+@keyframes pop-in {
+  0% { transform: translate(-50%, 10px) scale(0.85); opacity: 0; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes particle {
+  0% { transform: scale(0) translateY(0) rotate(0deg); opacity: 0; }
+  20% { transform: scale(1.3) translateY(-25px) rotate(120deg); opacity: 1; }
+  100% { transform: scale(0.4) translateY(-180px) rotate(360deg); opacity: 0; }
+}
+
+.animate-hero-idle { animation: hero-idle 2.5s ease-in-out infinite; }
+.animate-hero-struggle { animation: hero-struggle 1.1s ease-in-out infinite; }
+.animate-hero-walk { animation: hero-walk 0.75s ease-in-out infinite; }
+.animate-hero-run { animation: hero-run 0.45s ease-in-out infinite; }
+.animate-hero-turbo { animation: hero-turbo 0.35s ease-in-out infinite; }
+.animate-hero-victory { animation: hero-victory 0.75s ease-in-out infinite; }
+.animate-character-bounce { animation: character-bounce 0.5s ease-in-out 2; }
+.animate-arm-swing { animation: arm-swing 0.75s ease-in-out infinite; }
+.animate-arm-run { animation: arm-run 0.45s ease-in-out infinite; }
+.animate-arm-victory { animation: arm-victory 0.65s ease-in-out infinite; }
+.animate-leg-walk { animation: leg-walk 0.75s ease-in-out infinite; }
+.animate-leg-run { animation: leg-run 0.45s ease-in-out infinite; }
+.animate-tie-flutter { animation: tie-flutter 0.4s ease-in-out infinite; }
+.animate-crown-bounce { animation: crown-bounce 0.8s ease-in-out infinite; }
+.animate-wave { animation: wave 0.6s ease-in-out infinite; }
+.animate-wiggle { animation: wiggle 0.6s ease-in-out infinite; }
+.animate-pop-in { animation: pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-shimmer { animation: shimmer 2s infinite; }
+
+/* Dynamic Staircase & Epic Hero Animations */
+@keyframes stair-pulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  35% { transform: scale(1.06); filter: brightness(1.7) drop-shadow(0 0 16px rgba(251, 191, 36, 0.9)); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes stair-beacon {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.18); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8)); }
+}
+
+@keyframes wing-flap {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(-14deg) scale(1.08); }
+}
+
+@keyframes visor-sweep {
+  0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; }
+  30% { opacity: 0.9; }
+  60% { transform: translateX(180%) skewX(-20deg); opacity: 0; }
+  100% { transform: translateX(180%) skewX(-20deg); opacity: 0; }
+}
+
+@keyframes grimoire-float {
+  0%, 100% { transform: translateY(0px) rotate(-6deg); }
+  50% { transform: translateY(-7px) rotate(4deg); }
+}
+
+@keyframes footstep-ripple {
+  0% { transform: scale(0.6) translate(-50%, -50%); opacity: 0.9; }
+  100% { transform: scale(2.4) translate(-50%, -50%); opacity: 0; }
+}
+
+@keyframes flame-boost {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  50% { transform: scaleY(1.45) scaleX(0.85); filter: drop-shadow(0 0 12px #38bdf8); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes energy-orb {
+  0% { transform: rotate(0deg) translateX(18px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(18px) rotate(-360deg); }
+}
+
+.animate-stair-pulse { animation: stair-pulse 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.animate-stair-beacon { animation: stair-beacon 2s ease-in-out infinite; }
+.animate-wing-flap { animation: wing-flap 1.2s ease-in-out infinite; }
+.animate-visor-sweep { animation: visor-sweep 3s ease-in-out infinite; }
+.animate-grimoire-float { animation: grimoire-float 2.8s ease-in-out infinite; }
+.animate-footstep-ripple { animation: footstep-ripple 1.4s cubic-bezier(0.1, 0.7, 0.1, 1) infinite; }
+.animate-flame-boost { animation: flame-boost 0.25s ease-in-out infinite alternate; }
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-float-slow { animation: float-slow 3s ease-in-out infinite; }
+.animate-energy-orb { animation: energy-orb 3.5s linear infinite; }
+
+/* Living Scenery Keyframes & Animations */
+@keyframes cloud-drift-1 {
+  0% { transform: translateX(-10%); }
+  50% { transform: translateX(10%); }
+  100% { transform: translateX(-10%); }
+}
+
+@keyframes cloud-drift-2 {
+  0% { transform: translateX(15%); }
+  50% { transform: translateX(-15%); }
+  100% { transform: translateX(15%); }
+}
+
+@keyframes shooting-star-1 {
+  0%, 75% { transform: translate(120px, -60px) scale(0); opacity: 0; }
+  78% { opacity: 1; transform: translate(80px, -20px) scale(1); }
+  85% { transform: translate(-140px, 160px) scale(0.6); opacity: 0; }
+  100% { transform: translate(-140px, 160px) scale(0); opacity: 0; }
+}
+
+@keyframes shooting-star-2 {
+  0%, 40% { transform: translate(80px, -40px) scale(0); opacity: 0; }
+  43% { opacity: 1; transform: translate(40px, 0px) scale(1); }
+  50% { transform: translate(-180px, 180px) scale(0.5); opacity: 0; }
+  100% { transform: translate(-180px, 180px) scale(0); opacity: 0; }
+}
+
+@keyframes aurora-wave {
+  0%, 100% { transform: translateY(0) scaleY(1); opacity: 0.45; filter: hue-rotate(0deg); }
+  50% { transform: translateY(-12px) scaleY(1.25); opacity: 0.85; filter: hue-rotate(45deg); }
+}
+
+@keyframes firefly-dance {
+  0% { transform: translate(0, 0) scale(0.8); opacity: 0.3; }
+  25% { transform: translate(14px, -20px) scale(1.3); opacity: 0.9; }
+  50% { transform: translate(-10px, -45px) scale(0.9); opacity: 0.6; }
+  75% { transform: translate(18px, -70px) scale(1.4); opacity: 1; }
+  100% { transform: translate(0, -95px) scale(0.5); opacity: 0; }
+}
+
+@keyframes leaf-drift {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  15% { opacity: 0.85; }
+  50% { transform: translate(40px, 80px) rotate(180deg); }
+  85% { opacity: 0.85; }
+  100% { transform: translate(80px, 170px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes mist-drift {
+  0% { transform: translateX(-5%); opacity: 0.35; }
+  50% { transform: translateX(5%); opacity: 0.65; }
+  100% { transform: translateX(-5%); opacity: 0.35; }
+}
+
+@keyframes torch-flame {
+  0%, 100% { transform: scaleY(1) scaleX(1) rotate(-1deg); filter: brightness(1); }
+  25% { transform: scaleY(1.2) scaleX(0.9) rotate(2deg); filter: brightness(1.2); }
+  50% { transform: scaleY(0.9) scaleX(1.1) rotate(-2deg); filter: brightness(0.9); }
+  75% { transform: scaleY(1.3) scaleX(0.85) rotate(1deg); filter: brightness(1.3); }
+}
+
+@keyframes tree-branch-sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(2.5deg); }
+}
+
+@keyframes birds-glide {
+  0% { transform: translate(-50px, 20px) scale(0.8); opacity: 0; }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.7; }
+  100% { transform: translate(650px, -25px) scale(1.1); opacity: 0; }
+}
+
+.animate-cloud-drift-1 { animation: cloud-drift-1 28s ease-in-out infinite; }
+.animate-cloud-drift-2 { animation: cloud-drift-2 36s ease-in-out infinite; }
+.animate-shooting-star-1 { animation: shooting-star-1 7s ease-out infinite; }
+.animate-shooting-star-2 { animation: shooting-star-2 11s ease-out 3.5s infinite; }
+.animate-aurora-wave { animation: aurora-wave 8s ease-in-out infinite; }
+.animate-mist-drift { animation: mist-drift 14s ease-in-out infinite; }
+.animate-torch-flame { animation: torch-flame 0.4s ease-in-out infinite; }
+.animate-tree-sway { animation: tree-branch-sway 4.5s ease-in-out infinite; transform-origin: top left; }
+.animate-birds-glide { animation: birds-glide 22s linear infinite; }
+
+

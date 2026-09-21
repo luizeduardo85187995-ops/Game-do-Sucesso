@@ -1,0 +1,6 @@
+{
+  "name": "Jornada da Meta",
+  "description": "Jogo interativo de conquista de metas financeiras com escalada de escadaria e personagem dinâmico animado.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
