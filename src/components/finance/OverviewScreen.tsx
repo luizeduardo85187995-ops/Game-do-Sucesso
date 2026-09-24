@@ -20,6 +20,7 @@ import {
   Activity,
   ShieldCheck,
   Bot,
+  Crown,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
@@ -28,6 +29,7 @@ import SmartQuickLauncher from './SmartQuickLauncher';
 import { useAuth } from '../../context/AuthContext';
 import { GoogleLogo } from '../icons/GoogleLogo';
 import { useSettings } from '../../context/SettingsContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 
 interface OverviewScreenProps {
   onNavigateToGame: (goalId?: string) => void;
@@ -57,6 +59,7 @@ export default function OverviewScreen({
 
   const recentTransactions = transactions.slice(0, 5);
   const { user } = useAuth();
+  const { isPro, openProModal } = useSubscription();
 
   return (
     <div className="space-y-6 animate-fade-in relative">
@@ -510,6 +513,37 @@ export default function OverviewScreen({
           </div>
         )}
       </div>
+
+      {/* VIP PRO Upgrade Banner for Free Users */}
+      {!isPro && (
+        <div className="rounded-3xl bg-gradient-to-r from-amber-950/40 via-purple-950/40 to-slate-900 border border-amber-500/30 p-5 sm:p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/30 shrink-0">
+              <Crown className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-black text-white">Desbloqueie o NEO-FINANCE VIP PRO</h4>
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                  PIX INSTANTÂNEO
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Zero anúncios, Dante IA sem limites, importação B3 e radar de proventos por apenas R$ 9,99/mês.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={openProModal}
+            className="w-full md:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 shrink-0"
+          >
+            <Crown className="w-4 h-4" />
+            <span>Assinar VIP PRO</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -49,33 +49,24 @@ export default function TopAdBanner() {
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const adSenseRef = useRef<HTMLModElement | null>(null);
 
-  // Rotate sample ads every 10 seconds for free users when not using AdSense script
+  // Rotate sample ads every 8 seconds for free users
   useEffect(() => {
-    if (isPro || googleAdSenseClientId) return;
+    if (isPro) return;
     const interval = setInterval(() => {
       setCurrentAdIndex((prev) => (prev + 1) % SAMPLE_ADS.length);
-    }, 10000);
+    }, 8000);
     return () => clearInterval(interval);
-  }, [isPro, googleAdSenseClientId]);
+  }, [isPro]);
 
   // Load real Google AdSense script dynamically when publisher ID is configured
   useEffect(() => {
     if (isPro || !googleAdSenseClientId) return;
 
-    const existingScript = document.querySelector(`script[src*="adsbygoogle.js"]`);
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${googleAdSenseClientId}`;
-      script.async = true;
-      script.crossOrigin = 'anonymous';
-      document.head.appendChild(script);
-    }
-
     try {
       // @ts-ignore
       ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
     } catch (e) {
-      console.warn('AdSense push error:', e);
+      // silently handle AdSense push if already rendered or waiting approval
     }
   }, [isPro, googleAdSenseClientId, googleAdSenseSlotId]);
 

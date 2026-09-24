@@ -35,6 +35,7 @@ import {
 import { useSettings, AppTheme, AppCurrency } from '../../context/SettingsContext';
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
 
 export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoogle?: () => void }) {
@@ -63,7 +64,19 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
     setGoogleAdSenseSlotId,
     affiliateCustomUrl,
     setAffiliateCustomUrl,
+    pixKey,
+    setPixKey,
+    pixName,
+    setPixName,
+    checkoutUrl,
+    setCheckoutUrl,
+    kiwifyMonthlyUrl,
+    setKiwifyMonthlyUrl,
+    kiwifyAnnualUrl,
+    setKiwifyAnnualUrl,
   } = useSettings();
+
+  const { isPro, openProModal } = useSubscription();
 
   const {
     transactions,
@@ -932,7 +945,7 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
                     </span>
                   </h3>
                   <p className="text-xs text-slate-300">
-                    Configure seu ID do Google AdSense/AdMob ou seus links de afiliados para receber comissões diretamente.
+                    Receba pagamentos via PIX por assinaturas PRO e ganhe com anúncios/afiliados.
                   </p>
                 </div>
               </div>
@@ -950,9 +963,101 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
               <div className="space-y-1">
                 <strong className="text-white block">Como você ganha dinheiro com este app:</strong>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  <strong>1. Google AdSense / AdMob:</strong> O Google paga por visualizações e cliques no banner fixo superior e transfere mensalmente (dia 21) para sua conta bancária via código IBAN.<br />
-                  <strong>2. Programas de Afiliados Financeiros:</strong> Indicando abertura de contas em parceiros (ex: Nomad, BTG, Toro, Remessa Online), cada usuário que cria conta gera entre <strong>R$ 20 e R$ 150</strong> de comissão direta no seu Pix ou conta.<br />
-                  <strong>3. Assinatura PRO:</strong> Usuários pagam mensalmente para remover anúncios e ter importação ilimitada B3.
+                  <strong>1. Assinatura PRO Direta (PIX):</strong> Seus usuários pagam R$ 14,90/mês ou R$ 119,90/ano e o dinheiro vai 100% direto para a sua conta bancária sem taxas.<br />
+                  <strong>2. Google AdSense / AdMob:</strong> O Google exibe anúncios no banner e remunera por visualização e clique.<br />
+                  <strong>3. Afiliados Financeiros:</strong> Usuários que abrem conta na Nomad, B3 ou corretoras geram comissões imediatas.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* PIX & PRO Subscription Owner Settings */}
+          <div className="rounded-3xl bg-slate-900/80 border border-emerald-500/30 p-5 sm:p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Sua Chave PIX para Receber Pagamentos PRO</h4>
+                  <p className="text-xs text-slate-400">Quando seus clientes assinarem o VIP PRO, o PIX cai diretamente na sua conta</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={openProModal}
+                className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5"
+              >
+                <span>Ver Modal PRO</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-slate-300 block">
+                  Chave PIX de Recebimento (E-mail, CPF, Telefone ou Aleatória)
+                </label>
+                <input
+                  type="text"
+                  value={pixKey}
+                  onChange={(e) => setPixKey(e.target.value.trim())}
+                  placeholder="ex: seu-email@gmail.com ou 11999999999"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
+                />
+                <p className="text-[10px] text-slate-400">
+                  Esta é a chave que os seus usuários verão ao clicar em assinar o PRO.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-slate-300 block">
+                  Nome do Titular do PIX
+                </label>
+                <input
+                  type="text"
+                  value={pixName}
+                  onChange={(e) => setPixName(e.target.value)}
+                  placeholder="Luiz Eduardo"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
+                />
+                <p className="text-[10px] text-slate-400">
+                  Nome que aparecerá para o cliente conferir antes de transferir.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-slate-300 block">
+                  Link Kiwify Plano Mensal (R$ 9,99 / R$ 14,90)
+                </label>
+                <input
+                  type="url"
+                  value={kiwifyMonthlyUrl}
+                  onChange={(e) => setKiwifyMonthlyUrl(e.target.value.trim())}
+                  placeholder="https://pay.kiwify.com.br/DCGRpFb"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
+                />
+                <p className="text-[10px] text-slate-400">
+                  Checkout oficial da Kiwify com cobrança mensal recorrente.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-slate-300 block">
+                  Link Kiwify Plano Anual (R$ 119,90)
+                </label>
+                <input
+                  type="url"
+                  value={kiwifyAnnualUrl}
+                  onChange={(e) => setKiwifyAnnualUrl(e.target.value.trim())}
+                  placeholder="https://pay.kiwify.com.br/09lfPE1"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-500/30 text-white font-mono text-xs focus:border-amber-400 focus:outline-none placeholder:text-slate-600"
+                />
+                <p className="text-[10px] text-slate-400">
+                  Checkout oficial da Kiwify com cobrança anual recorrente.
                 </p>
               </div>
             </div>

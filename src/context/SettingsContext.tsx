@@ -16,6 +16,11 @@ export interface AppSettings {
   googleAdSenseClientId: string;
   googleAdSenseSlotId: string;
   affiliateCustomUrl: string;
+  pixKey: string;
+  pixName: string;
+  checkoutUrl: string;
+  kiwifyMonthlyUrl: string;
+  kiwifyAnnualUrl: string;
 }
 
 interface SettingsContextValue extends AppSettings {
@@ -32,6 +37,11 @@ interface SettingsContextValue extends AppSettings {
   setGoogleAdSenseClientId: (id: string) => void;
   setGoogleAdSenseSlotId: (id: string) => void;
   setAffiliateCustomUrl: (url: string) => void;
+  setPixKey: (key: string) => void;
+  setPixName: (name: string) => void;
+  setCheckoutUrl: (url: string) => void;
+  setKiwifyMonthlyUrl: (url: string) => void;
+  setKiwifyAnnualUrl: (url: string) => void;
   formatMoney: (value: number, forceShow?: boolean) => string;
 }
 
@@ -45,9 +55,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   budgetClosingDay: 1,
   savingsTargetRate: 20,
   highExpenseAlert: 1500,
-  googleAdSenseClientId: '',
+  googleAdSenseClientId: 'ca-pub-4819281615715588',
   googleAdSenseSlotId: '',
   affiliateCustomUrl: '',
+  pixKey: 'luizeduardo85187995@gmail.com',
+  pixName: 'Luiz Eduardo',
+  checkoutUrl: 'https://pay.kiwify.com.br/DCGRpFb',
+  kiwifyMonthlyUrl: 'https://pay.kiwify.com.br/DCGRpFb',
+  kiwifyAnnualUrl: 'https://pay.kiwify.com.br/09lfPE1',
 };
 
 const STORAGE_KEY = '@financas/settings-v1';
@@ -108,6 +123,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setGoogleAdSenseClientId = (googleAdSenseClientId: string) => setSettings((s) => ({ ...s, googleAdSenseClientId }));
   const setGoogleAdSenseSlotId = (googleAdSenseSlotId: string) => setSettings((s) => ({ ...s, googleAdSenseSlotId }));
   const setAffiliateCustomUrl = (affiliateCustomUrl: string) => setSettings((s) => ({ ...s, affiliateCustomUrl }));
+  const setPixKey = (pixKey: string) => setSettings((s) => ({ ...s, pixKey }));
+  const setPixName = (pixName: string) => setSettings((s) => ({ ...s, pixName }));
+  const setCheckoutUrl = (checkoutUrl: string) => setSettings((s) => ({ ...s, checkoutUrl }));
+  const setKiwifyMonthlyUrl = (kiwifyMonthlyUrl: string) => setSettings((s) => ({ ...s, kiwifyMonthlyUrl }));
+  const setKiwifyAnnualUrl = (kiwifyAnnualUrl: string) => setSettings((s) => ({ ...s, kiwifyAnnualUrl }));
 
   const formatMoney = (value: number, forceShow: boolean = false): string => {
     if (settings.hideValues && !forceShow) {
@@ -146,6 +166,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setGoogleAdSenseClientId,
         setGoogleAdSenseSlotId,
         setAffiliateCustomUrl,
+        setPixKey,
+        setPixName,
+        setCheckoutUrl,
+        setKiwifyMonthlyUrl,
+        setKiwifyAnnualUrl,
         formatMoney,
       }}
     >
