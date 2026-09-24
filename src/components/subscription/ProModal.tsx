@@ -292,13 +292,13 @@ export default function ProModal() {
 
         {/* Footer Actions */}
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-          {isPro && (
+          {isPro && isOwner && (
             <button
               type="button"
               onClick={handleRevertFree}
               className="text-xs text-rose-400 hover:text-rose-300 underline font-medium"
             >
-              (Modo Teste: Voltar para Versão Gratuita)
+              (Modo Administrador: Voltar para Versão Gratuita)
             </button>
           )}
 

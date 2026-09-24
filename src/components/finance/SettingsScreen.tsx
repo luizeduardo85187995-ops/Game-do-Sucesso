@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Palette,
   Moon,
@@ -76,7 +76,7 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
     setKiwifyAnnualUrl,
   } = useSettings();
 
-  const { isPro, openProModal } = useSubscription();
+  const { isPro, openProModal, activatePro, downgradeToFree } = useSubscription();
 
   const {
     transactions,
@@ -90,9 +90,16 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
   } = useFinance();
 
   const { user } = useAuth();
+  const isOwner = user?.email === 'luizeduardo85187995@gmail.com';
 
-  // Active section tab inside settings
-  const [activeSection, setActiveSection] = useState<'appearance' | 'financial' | 'data' | 'cloud' | 'monetization' | 'about'>('appearance');
+  // Active section tab inside settings (admin is strictly visible for isOwner)
+  const [activeSection, setActiveSection] = useState<'appearance' | 'financial' | 'data' | 'cloud' | 'about' | 'admin'>('appearance');
+
+  useEffect(() => {
+    if (!isOwner && activeSection === 'admin') {
+      setActiveSection('appearance');
+    }
+  }, [isOwner, activeSection]);
 
   // Import / Export Feedback
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -327,8 +334,17 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
           { id: 'financial', label: 'Preferências Financeiras', icon: Coins },
           { id: 'data', label: 'Backup & Dados', icon: Database },
           { id: 'cloud', label: 'Sincronização & Conta', icon: ShieldCheck },
-          { id: 'monetization', label: 'Monetização & Anúncios', icon: DollarSign },
           { id: 'about', label: 'Sobre o Sistema', icon: Info },
+          ...(isOwner
+            ? [
+                {
+                  id: 'admin',
+                  label: 'Painel do Dono (Admin)',
+                  icon: DollarSign,
+                  badge: 'EXCLUSIVO',
+                },
+              ]
+            : []),
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSection === tab.id;
@@ -338,12 +354,19 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
               onClick={() => setActiveSection(tab.id as any)}
               className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
                 isActive
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-md shadow-cyan-500/10'
+                  ? tab.id === 'admin'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-400/50 shadow-md shadow-amber-500/10'
+                    : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-md shadow-cyan-500/10'
                   : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className={`w-4 h-4 ${tab.id === 'admin' ? 'text-amber-400' : ''}`} />
               <span>{tab.label}</span>
+              {'badge' in tab && tab.badge && (
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  {tab.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -927,46 +950,73 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
         </div>
       )}
 
-      {/* SECTION 5: MONETIZATION & ADS */}
-      {activeSection === 'monetization' && (
+      {/* SECTION: PAINEL DO DONO & MONETIZAÇÃO (EXCLUSIVO PARA O ADMINISTRADOR) */}
+      {activeSection === 'admin' && isOwner && (
         <div className="space-y-6">
-          {/* Overview Hero Card */}
-          <div className="rounded-3xl bg-gradient-to-r from-emerald-950/60 via-slate-900/90 to-cyan-950/60 border border-emerald-500/30 p-5 sm:p-6 shadow-xl space-y-4">
+          {/* Admin Hero Card */}
+          <div className="rounded-3xl bg-gradient-to-r from-amber-950/60 via-slate-900/90 to-purple-950/60 border border-amber-500/40 p-5 sm:p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 flex items-center justify-center font-black shadow-lg shadow-emerald-500/20 shrink-0">
-                  <DollarSign className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center justify-center font-black shadow-lg shadow-amber-500/20 shrink-0">
+                  <ShieldCheck className="w-6 h-6 text-amber-400" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    Central de Monetização e Anúncios Reais
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      ATIVO
+                    Painel do Dono & Gestão Financeira do App
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                      ADMINISTRADOR
                     </span>
                   </h3>
                   <p className="text-xs text-slate-300">
-                    Receba pagamentos via PIX por assinaturas PRO e ganhe com anúncios/afiliados.
+                    Acesso exclusivo vinculado ao e-mail <strong>{user?.email}</strong>. Invisível para usuários e visitantes.
                   </p>
                 </div>
               </div>
 
-              <div className="text-right shrink-0">
-                <div className="text-[10px] font-mono text-slate-400 uppercase">Status do Banner</div>
-                <div className="text-xs font-bold text-emerald-400 font-mono">
-                  {googleAdSenseClientId ? 'Google AdSense Conectado' : 'Parceiros Financeiros Ativos'}
-                </div>
+              {/* Status da conta do Dono */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold border ${
+                  isPro
+                    ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                    : 'bg-slate-800 border-white/10 text-slate-300'
+                }`}>
+                  Sua Conta: {isPro ? 'VIP PRO ATIVO' : 'MODO GRATUITO'}
+                </span>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-start gap-3">
-              <Megaphone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <strong className="text-white block">Como você ganha dinheiro com este app:</strong>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  <strong>1. Assinatura PRO Direta (PIX):</strong> Seus usuários pagam R$ 14,90/mês ou R$ 119,90/ano e o dinheiro vai 100% direto para a sua conta bancária sem taxas.<br />
-                  <strong>2. Google AdSense / AdMob:</strong> O Google exibe anúncios no banner e remunera por visualização e clique.<br />
-                  <strong>3. Afiliados Financeiros:</strong> Usuários que abrem conta na Nomad, B3 ou corretoras geram comissões imediatas.
-                </p>
+            {/* Ações de Teste Rápido do Dono */}
+            <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 text-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-slate-300">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Testar o app na sua própria conta com 1 clique:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isPro ? (
+                  <button
+                    type="button"
+                    onClick={() => activatePro('annual', 'Admin Test')}
+                    className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow"
+                  >
+                    <span>Ativar VIP PRO na Minha Conta</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={downgradeToFree}
+                    className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs transition-all flex items-center gap-1.5"
+                  >
+                    <span>Voltar para Modo Gratuito (Testar Travas)</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={openProModal}
+                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-bold text-xs transition-all flex items-center gap-1"
+                >
+                  <span>Ver Modal de Compra</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           </div>
