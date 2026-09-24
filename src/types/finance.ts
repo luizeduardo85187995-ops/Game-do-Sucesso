@@ -35,12 +35,58 @@ export interface Investment {
   type: InvestmentType;
   code: string;
   name?: string;
-  amount: number;
+  amount: number; // Valor investido original / custo total
   date: string;
   quantity?: number;
   monthlyYield?: number;
   lastPrice?: number;
   lastPriceAt?: string;
+  averagePrice?: number;
+  currentPrice?: number;
+  priceChange24h?: number;
+  dividendYield?: number;
+  pvp?: number;
+  sector?: string;
+  totalCurrentValue?: number;
+  totalProfitLoss?: number;
+  totalProfitLossPercent?: number;
+}
+
+export type DividendType = 'rendimento' | 'dividendo' | 'jcp' | 'bonificacao';
+export type DividendStatus = 'scheduled' | 'paid' | 'projected';
+
+export interface DividendEvent {
+  id: string;
+  investmentId?: string;
+  ticker: string;
+  assetName: string;
+  type: DividendType;
+  dataCom: string; // Data de corte (YYYY-MM-DD)
+  paymentDate: string; // Data em que cai o pagamento (YYYY-MM-DD)
+  ratePerShare: number; // Valor por cota / ação (R$)
+  quantity: number; // Quantidade de cotas
+  totalAmount: number; // ratePerShare * quantity
+  status: DividendStatus;
+  creditedToAccount?: boolean;
+  bankAccountId?: string;
+  notes?: string;
+}
+
+export interface B3AssetQuote {
+  ticker: string;
+  name: string;
+  type: InvestmentType;
+  price: number;
+  changePercent: number;
+  dividendYield: number; // DY 12m em %
+  pvp?: number;
+  sector: string;
+  lastDividendPerShare?: number;
+  dividendFrequency?: 'mensal' | 'trimestral' | 'semestral' | 'anual';
+  nextDataCom?: string;
+  nextPaymentDate?: string;
+  estimatedNextRate?: number;
+  lastUpdate: string;
 }
 
 export interface SavingGoal {
@@ -83,4 +129,25 @@ export interface ParsedTransaction {
   category: string;
   bank?: string;
   confidence: 'high' | 'medium' | 'low';
+}
+
+export interface B3BrokerConnection {
+  id: string;
+  name: string;
+  code: string;
+  connected: boolean;
+  assetCount: number;
+  totalValue: number;
+}
+
+export interface B3IntegrationState {
+  isConnected: boolean;
+  connectedCpf?: string;
+  investorName?: string;
+  connectedAt?: string;
+  lastSyncAt?: string;
+  syncStatus: 'idle' | 'syncing' | 'success' | 'error';
+  linkedBrokers: B3BrokerConnection[];
+  autoSyncDividends: boolean;
+  importedAssetsCount: number;
 }

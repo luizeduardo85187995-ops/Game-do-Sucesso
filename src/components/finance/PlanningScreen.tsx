@@ -5,9 +5,6 @@ import {
   Trash2,
   Edit2,
   Gamepad2,
-  Download,
-  Upload,
-  RotateCcw,
   Sparkles,
   ShieldCheck,
   Coins,
@@ -37,7 +34,6 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
     expenseCategories,
     addCategory,
     removeCategory,
-    resetAllData,
   } = useFinance();
 
   // Goal Modal
@@ -129,35 +125,6 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
       investedPatrimony: parseFloat(patrimonyGoalInput) || 0,
     });
     setIsEditingStructural(false);
-  };
-
-  const handleExportBackup = () => {
-    const data = localStorage.getItem('@financas/state-v2');
-    if (!data) return;
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `minhas-financas-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const text = ev.target?.result as string;
-        JSON.parse(text); // validate
-        localStorage.setItem('@financas/state-v2', text);
-        window.location.reload();
-      } catch (err) {
-        alert('Arquivo de backup inválido.');
-      }
-    };
-    reader.readAsText(file);
   };
 
   return (
@@ -456,39 +423,6 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
               Adicionar
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Backup & Data Management */}
-      <div className="glass-card rounded-3xl p-5 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h4 className="font-bold text-white text-sm">Segurança & Backup dos Dados</h4>
-          <p className="text-xs text-slate-400">Exporte seu arquivo JSON para guardar ou restaurar a qualquer momento</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleExportBackup}
-            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white flex items-center gap-1.5 transition-all"
-          >
-            <Download className="w-3.5 h-3.5 text-cyan-400" /> Exportar Backup JSON
-          </button>
-
-          <label className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white flex items-center gap-1.5 cursor-pointer transition-all">
-            <Upload className="w-3.5 h-3.5 text-purple-400" /> Importar Backup
-            <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
-          </label>
-
-          <button
-            onClick={() => {
-              if (confirm('Tem certeza de que deseja resetar os dados para o estado inicial de demonstração?')) {
-                resetAllData();
-              }
-            }}
-            className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-all"
-          >
-            <RotateCcw className="w-3.5 h-3.5" /> Restaurar Padrão
-          </button>
         </div>
       </div>
 

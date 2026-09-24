@@ -1,6 +1,6 @@
 {
   "name": "Jornada da Meta",
-  "description": "App completo de controle financeiro (Minhas Finanças) com transações, bancos, investimentos, relatórios e o jogo interativo Jornada da Meta.",
+  "description": "App completo de controle financeiro (Minhas Finanças) com transações, bancos, investimentos, relatórios, consultor financeiro Dante (IA) e o jogo interativo Jornada da Meta.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

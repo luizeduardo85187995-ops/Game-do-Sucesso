@@ -72,10 +72,12 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
     ? Math.min((activeGoal.currentAmount / activeGoal.targetAmount) * 100, 100)
     : 0;
 
-  // Character Skin
+  // Character Skin - Default to The Executive (O Magnata)
   const [currentSkin, setCurrentSkin] = useState<CharacterSkinId>(() => {
     try {
-      return (localStorage.getItem('game_character_skin_v4') as CharacterSkinId) || 'executive';
+      const saved = localStorage.getItem('game_character_skin_v4') as CharacterSkinId;
+      if (saved && saved !== 'dante_dog') return saved;
+      return 'executive';
     } catch {
       return 'executive';
     }

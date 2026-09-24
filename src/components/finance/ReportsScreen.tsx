@@ -1,33 +1,63 @@
 import React, { useState } from 'react';
 import {
-  PieChart,
+  PieChart as PieChartIcon,
+  BarChart3,
   TrendingUp,
-  TrendingDown,
   Printer,
+  Download,
   Calendar,
-  DollarSign,
-  Award,
-  ArrowUpRight,
-  ArrowDownRight,
   Layers,
+  Building2,
+  Target,
+  FileSpreadsheet,
+  FileText,
+  CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR, monthKey } from '../../utils/format';
 import { CATEGORY_COLORS } from '../../data/categories';
 
 export default function ReportsScreen() {
-  const { transactions, metrics, savingGoals, bankAccounts, investments } = useFinance();
+  const { transactions, metrics, savingGoals, bankAccounts, investments, goals } = useFinance();
+  const [activeChartType, setActiveChartType] = useState<'categories' | 'monthly' | 'distribution'>('categories');
+  const [filterPeriod, setFilterPeriod] = useState<'all' | '3m' | '6m'>('all');
+  const [isExporting, setIsExporting] = useState(false);
 
-  // Category breakdown for expenses
+  // Group expenses by category
   const expenseByCategory: Record<string, number> = {};
   let totalExpense = 0;
 
-  for (const tx of transactions) {
+  // Group income by category
+  const incomeByCategory: Record<string, number> = {};
+  let totalIncome = 0;
+
+  // Group by month
+  const monthMap: Record<string, { income: number; expense: number; label: string }> = {};
+
+  transactions.forEach((tx) => {
     if (tx.type === 'expense') {
       expenseByCategory[tx.category] = (expenseByCategory[tx.category] || 0) + tx.amount;
       totalExpense += tx.amount;
+    } else {
+      incomeByCategory[tx.category] = (incomeByCategory[tx.category] || 0) + tx.amount;
+      totalIncome += tx.amount;
     }
-  }
+
+    if (tx.date) {
+      const d = new Date(tx.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).toUpperCase();
+      if (!monthMap[key]) {
+        monthMap[key] = { income: 0, expense: 0, label };
+      }
+      if (tx.type === 'income') {
+        monthMap[key].income += tx.amount;
+      } else {
+        monthMap[key].expense += tx.amount;
+      }
+    }
+  });
 
   const sortedExpenses = Object.entries(expenseByCategory)
     .map(([category, amount]) => ({
@@ -37,17 +67,6 @@ export default function ReportsScreen() {
     }))
     .sort((a, b) => b.amount - a.amount);
 
-  // Category breakdown for income
-  const incomeByCategory: Record<string, number> = {};
-  let totalIncome = 0;
-
-  for (const tx of transactions) {
-    if (tx.type === 'income') {
-      incomeByCategory[tx.category] = (incomeByCategory[tx.category] || 0) + tx.amount;
-      totalIncome += tx.amount;
-    }
-  }
-
   const sortedIncome = Object.entries(incomeByCategory)
     .map(([category, amount]) => ({
       category,
@@ -56,133 +75,407 @@ export default function ReportsScreen() {
     }))
     .sort((a, b) => b.amount - a.amount);
 
-  const handlePrint = () => {
-    window.print();
+  const monthlyTimeline = Object.entries(monthMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, data]) => ({ key, ...data }));
+
+  const maxMonthValue = Math.max(
+    ...monthlyTimeline.map((m) => Math.max(m.income, m.expense)),
+    100
+  );
+
+  // High precision print/PDF generation
+  const handleExportPDF = () => {
+    setIsExporting(true);
+    setTimeout(() => {
+      window.print();
+      setIsExporting(false);
+    }, 300);
   };
 
+  // CSV export
+  const handleExportCSV = () => {
+    const headers = ['Data', 'Tipo', 'Categoria', 'Valor', 'Conta', 'Observação'];
+    const rows = transactions.map((t) => [
+      t.date ? formatDateBR(t.date) : '',
+      t.type === 'income' ? 'Receita' : 'Despesa',
+      t.category,
+      t.amount.toFixed(2),
+      bankAccounts.find((b) => b.id === t.bankAccountId)?.bankName || 'Geral',
+      `"${(t.note || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `relatorio_financeiro_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // SVG Donut calculation
+  const getDonutSlices = (items: typeof sortedExpenses, total: number) => {
+    let cumulative = 0;
+    const colors = [
+      '#f97316', '#06b6d4', '#10b981', '#a855f7', '#ec4899',
+      '#eab308', '#3b82f6', '#14b8a6', '#f43f5e', '#64748b'
+    ];
+
+    return items.slice(0, 8).map((item, idx) => {
+      const startAngle = (cumulative / total) * 360;
+      cumulative += item.amount;
+      const endAngle = (cumulative / total) * 360;
+
+      return {
+        ...item,
+        color: colors[idx % colors.length],
+        startAngle,
+        endAngle,
+      };
+    });
+  };
+
+  const donutExpenses = getDonutSlices(sortedExpenses, totalExpense || 1);
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div className="space-y-6 animate-fade-in print:text-black">
+      {/* Top Header & Export Toolbar */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-2 border-b border-cyan-500/15 print:border-black">
         <div>
-          <h2 className="text-xl sm:text-2xl font-black text-white">Relatórios Financeiros</h2>
-          <p className="text-xs text-slate-400">Distribuição de despesas, receitas e fluxo patrimonial</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-white print:text-black tracking-tight flex items-center gap-2">
+              Relatórios & Gráficos Financeiros
+            </h2>
+            <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 print:text-slate-700 text-[10px] font-mono font-bold">
+              PDF EXPORT
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 print:text-slate-600 font-mono mt-0.5">
+            Análise detalhada de fluxo de caixa, distribuição por categorias e evolução mensal
+          </p>
         </div>
 
-        <button
-          onClick={handlePrint}
-          className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white flex items-center gap-1.5 transition-all"
-        >
-          <Printer className="w-4 h-4 text-cyan-400" />
-          <span>Imprimir / Gerar PDF</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 print:hidden flex-wrap">
+          <button
+            onClick={handleExportCSV}
+            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <span>Exportar CSV</span>
+          </button>
+
+          <button
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs flex items-center gap-2 transition active:scale-95 shadow-lg shadow-cyan-500/25"
+          >
+            <Printer className="w-4 h-4" />
+            <span>{isExporting ? 'Preparando...' : 'Exportar Relatório em PDF'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Snapshot Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="cyber-card rounded-2xl p-4 border-emerald-500/30 bg-emerald-950/20 hud-border-corners">
-          <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider">// Total Entradas</span>
-          <div className="text-xl font-black text-emerald-400 font-mono mt-1 neon-text-emerald">{formatBRL(totalIncome)}</div>
-          <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">{sortedIncome.length} fontes</span>
+      {/* Snapshot Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 print:grid-cols-4">
+        <div className="cyber-card rounded-2xl p-4 border-emerald-500/30 bg-emerald-950/20 hud-border-corners print:bg-white print:border-slate-300">
+          <span className="text-[10px] font-mono font-bold text-emerald-400 print:text-emerald-700 uppercase tracking-wider block">
+            // Total Entradas
+          </span>
+          <div className="text-xl sm:text-2xl font-black text-emerald-400 print:text-emerald-700 font-mono mt-1 neon-text-emerald">
+            {formatBRL(totalIncome)}
+          </div>
+          <span className="text-[10px] font-mono text-slate-400 print:text-slate-600 mt-1 block">
+            {sortedIncome.length} categorias cadastradas
+          </span>
         </div>
 
-        <div className="cyber-card rounded-2xl p-4 border-orange-500/30 bg-orange-950/20 hud-border-corners">
-          <span className="text-[10px] font-mono font-bold text-orange-400 uppercase tracking-wider">// Total Saídas</span>
-          <div className="text-xl font-black text-orange-400 font-mono mt-1">{formatBRL(totalExpense)}</div>
-          <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">{sortedExpenses.length} categorias</span>
+        <div className="cyber-card rounded-2xl p-4 border-orange-500/30 bg-orange-950/20 hud-border-corners print:bg-white print:border-slate-300">
+          <span className="text-[10px] font-mono font-bold text-orange-400 print:text-orange-700 uppercase tracking-wider block">
+            // Total Saídas
+          </span>
+          <div className="text-xl sm:text-2xl font-black text-orange-400 print:text-orange-700 font-mono mt-1">
+            {formatBRL(totalExpense)}
+          </div>
+          <span className="text-[10px] font-mono text-slate-400 print:text-slate-600 mt-1 block">
+            {sortedExpenses.length} categorias de gastos
+          </span>
         </div>
 
-        <div className="cyber-card rounded-2xl p-4 border-cyan-500/30 bg-cyan-950/20 hud-border-corners">
-          <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider">// Resultado Acumulado</span>
-          <div className={`text-xl font-black font-mono mt-1 ${totalIncome - totalExpense >= 0 ? 'text-cyan-400 neon-text-cyan' : 'text-rose-400'}`}>
+        <div className="cyber-card rounded-2xl p-4 border-cyan-500/30 bg-cyan-950/20 hud-border-corners print:bg-white print:border-slate-300">
+          <span className="text-[10px] font-mono font-bold text-cyan-400 print:text-cyan-700 uppercase tracking-wider block">
+            // Resultado Líquido
+          </span>
+          <div
+            className={`text-xl sm:text-2xl font-black font-mono mt-1 ${
+              totalIncome - totalExpense >= 0
+                ? 'text-cyan-400 print:text-cyan-700 neon-text-cyan'
+                : 'text-rose-400 print:text-rose-700'
+            }`}
+          >
             {formatBRL(totalIncome - totalExpense)}
           </div>
-          <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">Líquido</span>
+          <span className="text-[10px] font-mono text-slate-400 print:text-slate-600 mt-1 block">
+            Saldo acumulado do período
+          </span>
         </div>
 
-        <div className="cyber-card rounded-2xl p-4 border-amber-500/30 bg-amber-950/20 hud-border-corners">
-          <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">// Taxa de Poupança</span>
-          <div className="text-xl font-black text-amber-400 font-mono mt-1 neon-text-gold">{metrics.savingsRate.toFixed(0)}%</div>
-          <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">Da renda retida</span>
+        <div className="cyber-card rounded-2xl p-4 border-amber-500/30 bg-amber-950/20 hud-border-corners print:bg-white print:border-slate-300">
+          <span className="text-[10px] font-mono font-bold text-amber-400 print:text-amber-700 uppercase tracking-wider block">
+            // Taxa de Poupança
+          </span>
+          <div className="text-xl sm:text-2xl font-black text-amber-400 print:text-amber-700 font-mono mt-1 neon-text-gold">
+            {metrics.savingsRate.toFixed(0)}%
+          </div>
+          <span className="text-[10px] font-mono text-slate-400 print:text-slate-600 mt-1 block">
+            Da renda total convertida em saldo
+          </span>
         </div>
       </div>
 
-      {/* Main Breakdown: Expenses by Category */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Expenses List */}
-        <div className="cyber-card rounded-3xl p-6 space-y-4 hud-border-corners">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <PieChart className="w-5 h-5 text-orange-400" />
-              <h3 className="font-bold text-white text-base font-mono">// Despesas por Categoria</h3>
-            </div>
-            <span className="text-xs font-mono font-semibold text-slate-400">{formatBRL(totalExpense)}</span>
+      {/* Interactive Charts Section */}
+      <div className="cyber-card rounded-3xl p-5 sm:p-6 space-y-6 print:bg-white print:border-slate-300">
+        {/* Chart Selector Tab Buttons */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-white/10 print:hidden">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-base font-black text-white font-mono">
+              Visualização Gráfica
+            </h3>
           </div>
 
-          {sortedExpenses.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-xs">Nenhuma despesa registrada.</div>
-          ) : (
-            <div className="space-y-3.5">
-              {sortedExpenses.map((item) => {
-                const style = CATEGORY_COLORS[item.category] || CATEGORY_COLORS['Outros'];
-                return (
-                  <div key={item.category} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{style.emoji}</span>
-                        <span className="font-bold text-white">{item.category}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400">{item.percent.toFixed(1)}%</span>
-                        <strong className="text-orange-400">{formatBRL(item.amount)}</strong>
-                      </div>
-                    </div>
-
-                    <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500"
-                        style={{ width: `${item.percent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 bg-slate-900/60 p-1 rounded-xl border border-white/10">
+            <button
+              onClick={() => setActiveChartType('categories')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeChartType === 'categories'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <PieChartIcon className="w-3.5 h-3.5" />
+              <span>Categorias</span>
+            </button>
+            <button
+              onClick={() => setActiveChartType('monthly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeChartType === 'monthly'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Evolução Mensal</span>
+            </button>
+          </div>
         </div>
 
-        {/* Incomes Breakdown */}
-        <div className="glass-card rounded-3xl p-6 border border-white/10 space-y-4">
+        {/* Chart View 1: Categorias (Donut & Barra) */}
+        {activeChartType === 'categories' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* SVG Interactive Donut */}
+            <div className="lg:col-span-5 flex flex-col items-center justify-center p-4">
+              <div className="relative w-48 h-48 sm:w-56 sm:h-56">
+                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                  {/* Background Track */}
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="38"
+                    className="stroke-slate-800 print:stroke-slate-200 fill-none"
+                    strokeWidth="16"
+                  />
+                  {/* Slices */}
+                  {totalExpense > 0 &&
+                    donutExpenses.map((slice, i) => {
+                      const circumference = 2 * Math.PI * 38;
+                      const strokeDasharray = `${(slice.amount / totalExpense) * circumference} ${circumference}`;
+                      const strokeDashoffset = -((slice.startAngle / 360) * circumference);
+
+                      return (
+                        <circle
+                          key={i}
+                          cx="50"
+                          cy="50"
+                          r="38"
+                          fill="none"
+                          stroke={slice.color}
+                          strokeWidth="15"
+                          strokeDasharray={strokeDasharray}
+                          strokeDashoffset={strokeDashoffset}
+                          className="transition-all duration-700 hover:stroke-[17] cursor-pointer"
+                        />
+                      );
+                    })}
+                </svg>
+
+                {/* Donut Center Info */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                  <span className="text-[10px] font-mono text-slate-400 print:text-slate-600 uppercase font-bold">
+                    Despesas
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-white print:text-black font-mono">
+                    {formatBRL(totalExpense)}
+                  </span>
+                  <span className="text-[9px] font-mono text-cyan-400 print:text-cyan-700">
+                    {sortedExpenses.length} grupos
+                  </span>
+                </div>
+              </div>
+
+              {/* Mini Legend */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-4 max-w-sm">
+                {donutExpenses.map((slice, idx) => (
+                  <div key={idx} className="flex items-center gap-1 text-[11px] font-mono text-slate-300 print:text-slate-700">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block"
+                      style={{ backgroundColor: slice.color }}
+                    />
+                    <span>{slice.category}: {slice.percent.toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Category Ranking Horizontal Bars */}
+            <div className="lg:col-span-7 space-y-3">
+              <h4 className="text-xs font-mono font-bold text-slate-300 print:text-slate-700 uppercase tracking-wider">
+                // Detalhamento e Peso das Despesas
+              </h4>
+              {sortedExpenses.length === 0 ? (
+                <p className="text-xs text-slate-500">Nenhum gasto registrado para gerar gráfico.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {sortedExpenses.slice(0, 6).map((item, idx) => {
+                    const style = CATEGORY_COLORS[item.category] || CATEGORY_COLORS['Outros'];
+                    return (
+                      <div key={idx} className="bg-slate-900/60 print:bg-slate-50 p-2.5 rounded-xl border border-white/5 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 font-bold text-white print:text-black">
+                            <span>{style.emoji}</span>
+                            <span>{item.category}</span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono">
+                            <span className="text-slate-400 print:text-slate-600 text-[11px]">
+                              {item.percent.toFixed(1)}%
+                            </span>
+                            <span className="text-orange-400 print:text-orange-700 font-bold">
+                              {formatBRL(item.amount)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-800 print:bg-slate-200 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400"
+                            style={{ width: `${item.percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Chart View 2: Evolução Mensal (Bar Chart Comparativo) */}
+        {activeChartType === 'monthly' && (
+          <div className="space-y-4">
+            <h4 className="text-xs font-mono font-bold text-slate-300 print:text-slate-700 uppercase tracking-wider">
+              // Comparativo Mensal: Entradas vs Saídas
+            </h4>
+
+            {monthlyTimeline.length === 0 ? (
+              <p className="text-xs text-slate-500 py-8 text-center">Nenhum dado com data para timeline mensal.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-end gap-3 sm:gap-6 h-56 pt-6 px-2 border-b border-white/10 print:border-slate-300">
+                  {monthlyTimeline.map((item, idx) => {
+                    const incHeight = maxMonthValue > 0 ? (item.income / maxMonthValue) * 100 : 0;
+                    const expHeight = maxMonthValue > 0 ? (item.expense / maxMonthValue) * 100 : 0;
+
+                    return (
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                        <div className="flex items-end gap-1.5 w-full justify-center h-40">
+                          {/* Entrada Bar */}
+                          <div
+                            style={{ height: `${Math.max(incHeight, 4)}%` }}
+                            className="w-1/2 max-w-[28px] rounded-t-md bg-gradient-to-t from-emerald-600 to-teal-400 transition-all group-hover:brightness-125 relative"
+                            title={`Receitas: ${formatBRL(item.income)}`}
+                          />
+                          {/* Saída Bar */}
+                          <div
+                            style={{ height: `${Math.max(expHeight, 4)}%` }}
+                            className="w-1/2 max-w-[28px] rounded-t-md bg-gradient-to-t from-rose-600 to-orange-400 transition-all group-hover:brightness-125 relative"
+                            title={`Despesas: ${formatBRL(item.expense)}`}
+                          />
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400 print:text-slate-700 font-bold whitespace-nowrap">
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="flex items-center justify-center gap-6 text-xs font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-emerald-500" />
+                    <span className="text-slate-300 print:text-slate-700">Receitas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-rose-500" />
+                    <span className="text-slate-300 print:text-slate-700">Despesas</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Detailed Tables for Print & Audit */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Receitas por Categoria */}
+        <div className="cyber-card rounded-3xl p-5 sm:p-6 space-y-4 print:bg-white print:border-slate-300">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-emerald-400" />
-              <h3 className="font-bold text-white text-base">Receitas por Categoria</h3>
+              <h3 className="font-bold text-white print:text-black text-base font-mono">
+                Receitas por Categoria
+              </h3>
             </div>
-            <span className="text-xs font-semibold text-slate-400">{formatBRL(totalIncome)}</span>
+            <span className="text-xs font-mono font-bold text-emerald-400 print:text-emerald-700">
+              {formatBRL(totalIncome)}
+            </span>
           </div>
 
           {sortedIncome.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-xs">Nenhuma receita registrada.</div>
+            <div className="text-center py-6 text-slate-500 text-xs">Nenhuma receita registrada.</div>
           ) : (
-            <div className="space-y-3.5">
-              {sortedIncome.map((item) => {
+            <div className="space-y-2.5">
+              {sortedIncome.map((item, idx) => {
                 const style = CATEGORY_COLORS[item.category] || CATEGORY_COLORS['Outros'];
                 return (
-                  <div key={item.category} className="space-y-1.5">
+                  <div key={idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span className="text-base">{style.emoji}</span>
-                        <span className="font-bold text-white">{item.category}</span>
+                        <span className="font-bold text-white print:text-black">{item.category}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400">{item.percent.toFixed(1)}%</span>
-                        <strong className="text-emerald-400">{formatBRL(item.amount)}</strong>
+                      <div className="flex items-center gap-2 font-mono">
+                        <span className="text-slate-400 print:text-slate-600 text-[11px]">{item.percent.toFixed(1)}%</span>
+                        <strong className="text-emerald-400 print:text-emerald-700">{formatBRL(item.amount)}</strong>
                       </div>
                     </div>
-
-                    <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div className="w-full h-1.5 rounded-full bg-slate-800 print:bg-slate-200 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400"
                         style={{ width: `${item.percent}%` }}
                       />
                     </div>
@@ -192,6 +485,59 @@ export default function ReportsScreen() {
             </div>
           )}
         </div>
+
+        {/* Patrimônio e Alocação */}
+        <div className="cyber-card rounded-3xl p-5 sm:p-6 space-y-4 print:bg-white print:border-slate-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-amber-400" />
+              <h3 className="font-bold text-white print:text-black text-base font-mono">
+                Alocação e Metas Ativas
+              </h3>
+            </div>
+            <span className="text-xs font-mono font-bold text-amber-400 print:text-amber-700">
+              {savingGoals.length} Metas
+            </span>
+          </div>
+
+          {savingGoals.length === 0 ? (
+            <div className="text-center py-6 text-slate-500 text-xs">Nenhuma meta configurada ainda.</div>
+          ) : (
+            <div className="space-y-3">
+              {savingGoals.map((goal) => {
+                const pct = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
+                return (
+                  <div key={goal.id} className="p-3 rounded-2xl bg-slate-900/60 print:bg-slate-50 border border-white/5 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 font-bold text-white print:text-black">
+                        <span>{goal.emoji || '🎯'}</span>
+                        <span>{goal.name}</span>
+                      </div>
+                      <span className="font-mono text-amber-400 print:text-amber-700 font-bold">
+                        {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-800 print:bg-slate-200 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-300"
+                        style={{ width: `${Math.min(pct, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 print:text-slate-600">
+                      <span>Atual: {formatBRL(goal.currentAmount)}</span>
+                      <span>Alvo: {formatBRL(goal.targetAmount)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Print Footer Notice */}
+      <div className="hidden print:block pt-8 text-center text-xs text-slate-500 font-mono border-t border-slate-300">
+        <p>Relatório emitido pelo aplicativo Minhas Finanças + Jornada da Meta • {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
       </div>
     </div>
   );

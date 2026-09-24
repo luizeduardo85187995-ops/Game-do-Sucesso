@@ -16,6 +16,38 @@ interface CharacterHeroProps {
 
 // Character specific motivational voice lines - Mature, inspiring & financial mindset
 const SKIN_QUOTES: Record<CharacterSkinId, Record<CharacterState, string[]>> = {
+  dante_dog: {
+    idle: [
+      'Au au! Dante conectado e farejando as melhores oportunidades de economia!',
+      'Latido de alerta: cada real guardado hoje é um petisco financeiro no futuro!',
+      'Radar quântico ativo! Sentado e vigiando seu patrimônio com lealdade canina.',
+    ],
+    struggling: [
+      'Wuf! Primeiros passos da escalada! Abanando o rabo para celebrar seu esforço!',
+      'Não desanime! Cachorro bom não larga o osso do planejamento financeiro!',
+      'Latido de coragem! Subimos o primeiro degrau juntos! 🤖🐾',
+    ],
+    walking: [
+      'Trote firme na montanha! Farejo disciplina e foco na sua meta!',
+      'Au au! Mantendo o passo firme! Seus aportes estão dando resultado!',
+      'Lealdade canina ao seu sonho! Cada aporte é um degrau a menos! 📈',
+    ],
+    running: [
+      'AU AU! Reta de aceleração! Abanando o rabo cibernético na velocidade máxima!',
+      'Mais da metade da montanha percorrida! Corrida triunfal rumo ao topo!',
+      'Olha essa altitude! Quase alcançamos as nuvens da realização! ⚡🐕',
+    ],
+    almost: [
+      'AUUUUUU! Uivo da vitória iminente! O topo está logo aqui, sinto o cheiro do troféu!',
+      'Radar em 99%! Não para agora, o sonho da sua meta está ao alcance da pata!',
+      'Latido supersônico! Só mais um fôlego e o topo é nosso!',
+    ],
+    victory: [
+      'AUUUUUUU! 🏆 META CONQUISTADA COM SUCESSO! Abanando o rabo a mil por hora!',
+      'Dante aprova 100%! Você provou ser o mestre da disciplina financeira! 🐾👑',
+      'Uivo cósmico de vitória! Você chegou ao topo da montanha com maestria!',
+    ],
+  },
   executive: {
     idle: [
       'Visão de longo prazo: cada real guardado é um ativo trabalhando por você.',
@@ -410,6 +442,7 @@ export default function CharacterHero({
 
       {/* Character Graphic */}
       <div className={`relative ${getBodyMotionClass()} transition-transform duration-300`}>
+        {skinId === 'dante_dog' && <DanteDogSvg state={state} isWaving={isWaving} progress={progress} />}
         {skinId === 'executive' && <ExecutiveSvg state={state} isWaving={isWaving} progress={progress} />}
         {skinId === 'astronaut' && <AstronautSvg state={state} isWaving={isWaving} progress={progress} />}
         {skinId === 'wizard' && <WizardSvg state={state} isWaving={isWaving} progress={progress} />}
@@ -1002,3 +1035,163 @@ function ValkyrieSvg({ state, isWaving, progress }: { state: CharacterState; isW
     </svg>
   );
 }
+
+// =========================================================================
+// 7. Dante (Cachorro Robótico Cibernético - O Mascote Fiel da Liberdade Financeira)
+// =========================================================================
+function DanteDogSvg({ state, isWaving, progress }: { state: CharacterState; isWaving: boolean; progress: number }) {
+  const isVictory = state === 'victory';
+  const isRunning = state === 'running' || state === 'almost';
+  const isStruggling = state === 'struggling';
+
+  return (
+    <svg width="96" height="118" viewBox="0 0 96 118" fill="none" className="drop-shadow-2xl">
+      <defs>
+        <linearGradient id="danteMetalArmor" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f8fafc" />
+          <stop offset="50%" stopColor="#cbd5e1" />
+          <stop offset="100%" stopColor="#94a3b8" />
+        </linearGradient>
+        <linearGradient id="danteDarkChassis" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#334155" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+        <linearGradient id="danteCyanNeon" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#06b6d4" />
+          <stop offset="50%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#67e8f9" />
+        </linearGradient>
+        <filter id="danteGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      {/* Cybernetic Tail with Wagging Animation & Neon Cyan Tip */}
+      <g className={isRunning || isVictory ? 'animate-bounce origin-left' : 'animate-wiggle origin-left'} style={{ transformOrigin: '28px 75px' }}>
+        <path
+          d="M 28 75 C 16 72, 10 60, 14 46 C 16 38, 24 34, 22 28"
+          stroke="url(#danteMetalArmor)"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+        {/* Tail Segment Rings */}
+        <circle cx="16" cy="62" r="2.5" fill="#0284c7" />
+        <circle cx="14" cy="46" r="2.5" fill="#38bdf8" />
+        {/* Glowing Antenna Bulb on Tip */}
+        <circle cx="22" cy="28" r="4.5" fill="url(#danteCyanNeon)" filter="url(#danteGlow)" />
+        <circle cx="22" cy="28" r="2" fill="#ffffff" className="animate-ping" />
+      </g>
+
+      {/* Cybernetic Ears (Perked Robotic Puppy Ears) */}
+      {/* Left Ear */}
+      <g className={isRunning ? 'animate-bounce origin-bottom' : 'animate-pulse origin-bottom'}>
+        <polygon points="34,26 24,6 40,16" fill="url(#danteDarkChassis)" stroke="url(#danteCyanNeon)" strokeWidth="1.2" />
+        <polygon points="33,22 27,10 38,17" fill="#06b6d4" opacity="0.8" />
+        <circle cx="26" cy="8" r="1.5" fill="#38bdf8" className="animate-ping" />
+      </g>
+      {/* Right Ear */}
+      <g className={isRunning ? 'animate-bounce origin-bottom' : 'animate-pulse origin-bottom'} style={{ animationDelay: '0.15s' }}>
+        <polygon points="62,26 72,6 56,16" fill="url(#danteDarkChassis)" stroke="url(#danteCyanNeon)" strokeWidth="1.2" />
+        <polygon points="63,22 69,10 58,17" fill="#06b6d4" opacity="0.8" />
+        <circle cx="70" cy="8" r="1.5" fill="#38bdf8" className="animate-ping" />
+      </g>
+
+      {/* Dog Head Chassis (Glossy White Robo-Canine Helmet) */}
+      <ellipse cx="48" cy="34" rx="20" ry="17" fill="url(#danteMetalArmor)" stroke="#0f172a" strokeWidth="1.5" />
+
+      {/* Top Head Antenna with Financial Radar Sensor */}
+      <line x1="48" y1="17" x2="48" y2="9" stroke="url(#danteDarkChassis)" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="48" cy="8" r="3" fill="url(#danteCyanNeon)" filter="url(#danteGlow)" />
+      <circle cx="48" cy="8" r="1.2" fill="#ffffff" />
+
+      {/* Curved Cyber Visor (Expressive Blue/Cyan LED Eyes) */}
+      <rect x="33" y="24" width="30" height="15" rx="6" fill="#020617" stroke="#38bdf8" strokeWidth="1.2" />
+
+      {/* Expressive Puppy Eyes (Cybernetic LEDs) */}
+      {isVictory ? (
+        // Happy Arc Victory Eyes ^^
+        <g stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" filter="url(#danteGlow)">
+          <path d="M 37 32 Q 41 27 45 32" fill="none" />
+          <path d="M 51 32 Q 55 27 59 32" fill="none" />
+        </g>
+      ) : isStruggling ? (
+        // Determined Focused Eyes
+        <g fill="#38bdf8" filter="url(#danteGlow)">
+          <polygon points="37,30 45,33 38,34" />
+          <polygon points="59,30 51,33 58,34" />
+        </g>
+      ) : (
+        // Big Cute Puppy Eyes with Sparkling Catchlights
+        <g>
+          <ellipse cx="41" cy="31" rx="4" ry="4.5" fill="#38bdf8" filter="url(#danteGlow)" />
+          <circle cx="40" cy="29" r="1.8" fill="#ffffff" />
+          <circle cx="43" cy="33" r="0.9" fill="#ffffff" />
+
+          <ellipse cx="55" cy="31" rx="4" ry="4.5" fill="#38bdf8" filter="url(#danteGlow)" />
+          <circle cx="54" cy="29" r="1.8" fill="#ffffff" />
+          <circle cx="57" cy="33" r="0.9" fill="#ffffff" />
+        </g>
+      )}
+
+      {/* Cute Robo Canine Snout */}
+      <path
+        d="M 40 37 C 40 35, 56 35, 56 37 L 54 47 C 54 49, 42 49, 42 47 Z"
+        fill="#f1f5f9"
+        stroke="#94a3b8"
+        strokeWidth="1"
+      />
+      {/* Black Nose with LED Glint */}
+      <ellipse cx="48" cy="41" rx="3.5" ry="2.5" fill="#0f172a" />
+      <circle cx="47" cy="40" r="1" fill="#38bdf8" />
+
+      {/* Cute Puppy Mouth */}
+      <path d="M 44 44 Q 48 47 52 44" stroke="#0f172a" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+
+      {/* Cyber Collar with Gold Energy Core / Tag */}
+      <rect x="36" y="50" width="24" height="6" rx="3" fill="#0f172a" stroke="url(#danteCyanNeon)" strokeWidth="1" />
+      {/* Collar Tag: Glowing Gold BRL Medallion */}
+      <circle cx="48" cy="58" r="6" fill="#fbbf24" stroke="#b45309" strokeWidth="1" filter="url(#danteGlow)" />
+      <text x="48" y="61" textAnchor="middle" fontSize="6.5" fontWeight="900" fill="#78350f" fontFamily="monospace">R$</text>
+
+      {/* Main Body Chassis (Glossy White Armor with Carbon Fiber Plates) */}
+      <ellipse cx="48" cy="74" rx="19" ry="20" fill="url(#danteMetalArmor)" stroke="#0f172a" strokeWidth="1.5" />
+      {/* Chest Armor Power Core (Arc Reactor) */}
+      <circle cx="48" cy="73" r="5" fill="#020617" stroke="#38bdf8" strokeWidth="1" />
+      <polygon points="48,70 51,75 45,75" fill="#38bdf8" className="animate-spin origin-center" style={{ transformOrigin: '48px 73px', animationDuration: '4s' }} />
+      <circle cx="48" cy="73" r="2" fill="#ffffff" className="animate-ping" />
+
+      {/* Side Energy Circuit Decals */}
+      <path d="M 33 70 L 39 74 L 35 80" stroke="#06b6d4" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+      <path d="M 63 70 L 57 74 L 61 80" stroke="#06b6d4" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+
+      {/* Front Left Paw / Hand waving or running */}
+      <g className={isWaving || isVictory ? 'animate-arm-victory origin-top-left' : isRunning ? 'animate-arm-run origin-top-left' : ''}>
+        <path d="M 35 68 C 29 74, 25 84, 28 92" stroke="url(#danteDarkChassis)" strokeWidth="6" strokeLinecap="round" />
+        <ellipse cx="28" cy="94" rx="4.5" ry="3.5" fill="url(#danteMetalArmor)" stroke="#0f172a" strokeWidth="1" />
+        <circle cx="28" cy="94" r="1.5" fill="#38bdf8" />
+      </g>
+
+      {/* Front Right Paw */}
+      <g className={isRunning ? 'animate-leg-run origin-top-right' : ''}>
+        <path d="M 61 68 C 67 74, 71 84, 68 92" stroke="url(#danteDarkChassis)" strokeWidth="6" strokeLinecap="round" />
+        <ellipse cx="68" cy="94" rx="4.5" ry="3.5" fill="url(#danteMetalArmor)" stroke="#0f172a" strokeWidth="1" />
+        <circle cx="68" cy="94" r="1.5" fill="#38bdf8" />
+      </g>
+
+      {/* Back Hydraulic Paws / Thruster Boots */}
+      <g className={isRunning ? 'animate-leg-run origin-top' : 'animate-leg-walk origin-top'}>
+        <path d="M 40 88 L 39 108" stroke="url(#danteDarkChassis)" strokeWidth="7" strokeLinecap="round" />
+        <ellipse cx="38" cy="111" rx="6" ry="4" fill="url(#danteMetalArmor)" stroke="#0f172a" strokeWidth="1" />
+        <rect x="34" y="112" width="8" height="2" rx="1" fill="#38bdf8" />
+      </g>
+      <g className={isRunning ? 'animate-leg-run origin-top' : 'animate-leg-walk origin-top'} style={{ animationDelay: '0.2s' }}>
+        <path d="M 56 88 L 57 108" stroke="url(#danteDarkChassis)" strokeWidth="7" strokeLinecap="round" />
+        <ellipse cx="58" cy="111" rx="6" ry="4" fill="url(#danteMetalArmor)" stroke="#0f172a" strokeWidth="1" />
+        <rect x="54" y="112" width="8" height="2" rx="1" fill="#38bdf8" />
+      </g>
+    </svg>
+  );
+}
+

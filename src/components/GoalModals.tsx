@@ -515,9 +515,18 @@ export function SkinSelectorModal({ currentSkin, onSelectSkin, onClose }: SkinSe
                 }`}
               >
                 <div
-                  className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${skin.accentColor} flex items-center justify-center text-2xl shadow-md shrink-0`}
+                  className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${skin.accentColor} flex items-center justify-center text-2xl shadow-md shrink-0 overflow-hidden`}
                 >
-                  {skin.icon}
+                  {skin.id === 'dante_dog' ? (
+                    <img
+                      src="/dante_dog.jpg"
+                      alt="Dante Cão Robô"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    skin.icon
+                  )}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">

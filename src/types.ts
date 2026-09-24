@@ -8,7 +8,7 @@ export interface Goal {
   emoji: string;
 }
 
-export type CharacterSkinId = 'executive' | 'astronaut' | 'wizard' | 'ninja' | 'lucky_cat' | 'valkyrie';
+export type CharacterSkinId = 'dante_dog' | 'executive' | 'astronaut' | 'wizard' | 'ninja' | 'lucky_cat' | 'valkyrie';
 
 export interface CharacterSkin {
   id: CharacterSkinId;

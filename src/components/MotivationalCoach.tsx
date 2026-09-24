@@ -178,7 +178,7 @@ export default function MotivationalCoach({
       {/* Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 relative z-10">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center font-bold text-base shadow-md shadow-amber-400/30">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
             <Flame className="w-5 h-5 fill-slate-950" />
           </div>
           <div>
@@ -186,7 +186,7 @@ export default function MotivationalCoach({
               <h3 className="text-sm sm:text-base font-bold text-white tracking-wide">
                 Coach de Conquistas & Mentalidade
               </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30 uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-wider">
                 Motivação Real
               </span>
             </div>

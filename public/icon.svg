@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050B14"/>
+      <stop offset="50%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="trophy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="100%" stop-color="#EAB308"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#06B6D4" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  
+  <!-- Outer glowing ring -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="url(#glow)" stroke-width="4" stroke-opacity="0.35"/>
+
+  <!-- Mountain / Stairway Peak (Cyberpunk theme) -->
+  <path d="M120 380 L256 160 L392 380 Z" fill="none" stroke="#06B6D4" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"/>
+  <path d="M160 380 L256 220 L352 380 Z" fill="none" stroke="#38BDF8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+
+  <!-- Glowing Steps / Growth Bars -->
+  <rect x="140" y="340" width="40" height="50" rx="8" fill="#0284C7" filter="url(#shadow)"/>
+  <rect x="200" y="290" width="40" height="100" rx="8" fill="#0EA5E9" filter="url(#shadow)"/>
+  <rect x="260" y="230" width="40" height="160" rx="8" fill="#06B6D4" filter="url(#shadow)"/>
+  <rect x="320" y="170" width="40" height="220" rx="8" fill="#10B981" filter="url(#shadow)"/>
+
+  <!-- Golden Trophy / Flag at the summit -->
+  <circle cx="340" cy="125" r="28" fill="url(#trophy)" filter="url(#shadow)"/>
+  <path d="M332 115 L348 115 M340 115 L340 135 M334 135 L346 135" stroke="#713F12" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Neon Star sparkles -->
+  <polygon points="256,90 262,106 278,112 262,118 256,134 250,118 234,112 250,106" fill="#38BDF8"/>
+  <polygon points="170,160 174,172 186,176 174,180 170,192 166,180 154,176 166,172" fill="#FACC15"/>
+</svg>
