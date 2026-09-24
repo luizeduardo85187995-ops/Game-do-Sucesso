@@ -61,10 +61,10 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
   { id: 'transactions', label: 'Lançamentos', icon: ReceiptText },
   { id: 'banks', label: 'Bancos', icon: Building2 },
-  { id: 'investments', label: 'Investimentos', icon: TrendingUp, badge: 'B3' },
+  { id: 'investments', label: 'Investimentos', icon: TrendingUp, badge: 'PRO' },
   { id: 'planning', label: 'Planejar', icon: Target },
   { id: 'reports', label: 'Relatórios', icon: PieChart },
-  { id: 'ai', label: 'Dante (IA)', icon: Bot, badge: 'PRO' },
+  { id: 'ai', label: 'Dante IA', icon: Bot, badge: 'PRO' },
   { id: 'game', label: 'Jornada da Meta', icon: Gamepad2, highlight: true },
   { id: 'settings', label: 'Configurações', icon: Settings },
   { id: 'google', label: 'Entrar com Google', icon: GoogleLogo, isGoogle: true },
@@ -254,7 +254,9 @@ function AppContent() {
                   )}
                   {tab.badge && (
                     <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded ${
-                      isActive && isAI
+                      tab.badge === 'PRO'
+                        ? 'bg-gradient-to-r from-amber-400 to-amber-300 text-slate-950 font-black shadow-sm'
+                        : isActive && isAI
                         ? 'bg-slate-950 text-cyan-300'
                         : 'bg-cyan-400/30 text-cyan-200 border border-cyan-300/40'
                     }`}>
@@ -407,7 +409,11 @@ function AppContent() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                 )}
                 {tab.badge && (
-                  <span className="text-[8px] font-mono font-black px-1 py-0.2 rounded bg-cyan-400/30 text-cyan-200">
+                  <span className={`text-[8px] font-mono font-black px-1 py-0.2 rounded ${
+                    tab.badge === 'PRO'
+                      ? 'bg-amber-400 text-slate-950 font-black'
+                      : 'bg-cyan-400/30 text-cyan-200'
+                  }`}>
                     {tab.badge}
                   </span>
                 )}

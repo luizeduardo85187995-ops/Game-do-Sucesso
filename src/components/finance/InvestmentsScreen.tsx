@@ -38,10 +38,13 @@ import { B3_CATALOG, fetchB3Quote } from '../../services/b3MarketService';
 import B3SearchModal from './B3SearchModal';
 import DividendRadarScreen from './DividendRadarScreen';
 import B3ConnectionModal from './B3ConnectionModal';
+import { useSubscription } from '../../context/SubscriptionContext';
+import ProFeatureLock from '../subscription/ProFeatureLock';
 
 type SubTab = 'portfolio' | 'radar' | 'explore';
 
 export default function InvestmentsScreen() {
+  const { isPro } = useSubscription();
   const {
     investments,
     addInvestment,
@@ -197,6 +200,36 @@ export default function InvestmentsScreen() {
   const upcomingCount = dividendEvents.filter(
     (e) => e.paymentDate.startsWith(currentMonthKey) && e.status !== 'paid'
   ).length;
+
+  if (!isPro) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+        <ProFeatureLock
+          title="Módulo de Investimentos & Carteira B3"
+          subtitle="Monitore sua carteira completa de Ações, Fundos Imobiliários (FIIs), Renda Fixa e receba projeções de dividendos futuros da B3."
+          icon={<TrendingUp className="w-10 h-10 text-slate-950" />}
+          benefits={[
+            {
+              title: 'Radar de Dividendos B3',
+              desc: 'Previsão automática de proventos futuros e datas com de pagamentos.',
+            },
+            {
+              title: 'Importação de Extratos B3',
+              desc: 'Carregue notas de corretagem e relatórios da Área do Investidor em segundos.',
+            },
+            {
+              title: 'Cotações em Tempo Real',
+              desc: 'Acompanhe oscilações diárias de ações, FIIs e taxas CDI/Selic.',
+            },
+            {
+              title: 'Projeção de Renda Passiva',
+              desc: 'Simulador quântico de patrimônio e cálculo para viver de renda.',
+            },
+          ]}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

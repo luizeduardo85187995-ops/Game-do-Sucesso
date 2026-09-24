@@ -15,6 +15,8 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { callPollinationsAI, buildHistory, ChatMessage } from '../../lib/pollinations';
 import { formatBRL } from '../../utils/format';
+import { useSubscription } from '../../context/SubscriptionContext';
+import ProFeatureLock from '../subscription/ProFeatureLock';
 
 interface Message {
   id: string;
@@ -24,6 +26,7 @@ interface Message {
 }
 
 export default function AIChatScreen() {
+  const { isPro } = useSubscription();
   const { transactions, investments, savingGoals, metrics } = useFinance();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -134,6 +137,36 @@ export default function AIChatScreen() {
     { label: 'Regra orçamentária 50/30/20', query: 'Como posso aplicar a regra 50/30/20 na prática com os meus ganhos e despesas atuais?' },
     { label: 'Como acelerar a Jornada da Meta?', query: 'Me dê um plano de ação prático para economizar mais rápido e alcançar o degrau topo da minha meta.' },
   ];
+
+  if (!isPro) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+        <ProFeatureLock
+          title="Dante IA: Consultoria Financeira com IA"
+          subtitle="Tenha um consultor financeiro particular inteligente conectado aos seus lançamentos, receitas, despesas e metas em tempo real."
+          icon={<Bot className="w-10 h-10 text-slate-950" />}
+          benefits={[
+            {
+              title: 'Diagnóstico em Tempo Real',
+              desc: 'Análise detalhada de gastos, sobras e fluxo de caixa mensal.',
+            },
+            {
+              title: 'Dicas de Investimentos Personalizadas',
+              desc: 'Orientações sob medida para Tesouro Selic, CDBs e Fundos Imobiliários.',
+            },
+            {
+              title: 'Cálculo de Reserva de Emergência',
+              desc: 'Planejamento automático com base nas suas despesas reais.',
+            },
+            {
+              title: 'Estratégias para o Jogo da Meta',
+              desc: 'Planos de ação práticos para economizar mais rápido e subir de nível.',
+            },
+          ]}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-4">

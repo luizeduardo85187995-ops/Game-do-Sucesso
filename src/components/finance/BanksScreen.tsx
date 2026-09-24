@@ -13,6 +13,8 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { BankAccount, BankAccountType } from '../../types/finance';
 import { formatBRL } from '../../utils/format';
+import { useSubscription } from '../../context/SubscriptionContext';
+import { Crown, Lock } from 'lucide-react';
 
 const POPULAR_BANKS = [
   'Nubank',
@@ -40,6 +42,7 @@ const ACCOUNT_TYPE_LABELS: Record<BankAccountType, string> = {
 };
 
 export default function BanksScreen() {
+  const { isPro, openProModal } = useSubscription();
   const {
     bankAccounts,
     addBankAccount,
@@ -62,6 +65,10 @@ export default function BanksScreen() {
   const [quickBalanceVal, setQuickBalanceVal] = useState('');
 
   const openNewModal = () => {
+    if (!isPro && bankAccounts.length >= 2) {
+      openProModal();
+      return;
+    }
     setEditingAcc(null);
     setBankName('Nubank');
     setAccountType('checking');
@@ -128,6 +135,35 @@ export default function BanksScreen() {
           <span>Adicionar Conta</span>
         </button>
       </div>
+
+      {/* Free Plan Bank Limit Banner */}
+      {!isPro && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-500/30">
+              <Crown className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-xs text-white font-bold flex items-center gap-2">
+                <span>Bancos e Cartões:</span>
+                <span className="text-amber-400 font-mono bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
+                  {bankAccounts.length} / 2 Contas (Plano Gratuito)
+                </span>
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                No plano Gratuito você pode conectar até 2 bancos/carteiras. Assine o VIP PRO para cadastrar contas e cartões ilimitados!
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={openProModal}
+            className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs transition-all flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 shrink-0"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Liberar Contas Ilimitadas</span>
+          </button>
+        </div>
+      )}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

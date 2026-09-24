@@ -28,12 +28,14 @@ import {
 } from '../GoalModals';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL } from '../../utils/format';
+import { useSubscription } from '../../context/SubscriptionContext';
 
 interface GameTabScreenProps {
   initialGoalId?: string | null;
 }
 
 export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
+  const { isPro, openProModal } = useSubscription();
   const {
     savingGoals,
     activeGoalId,
@@ -228,8 +230,32 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
     setShowCreateModal(false);
   };
 
+  const handleOpenCreateGoal = () => {
+    if (!isPro && savingGoals.length >= 1) {
+      openProModal();
+      return;
+    }
+    setShowCreateModal(true);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in flex flex-col items-center">
+      {/* Free Plan Metas Limit Banner in Game */}
+      {!isPro && (
+        <div className="w-full max-w-4xl p-3 sm:p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-300 font-bold">
+            <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Meta Gratuita Ativa ({savingGoals.length}/1) • Assine o VIP PRO para Metas e Fases Ilimitadas!</span>
+          </div>
+          <button
+            onClick={openProModal}
+            className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shrink-0 transition shadow"
+          >
+            Liberar Metas
+          </button>
+        </div>
+      )}
+
       {/* Milestone Celebration Toast */}
       {milestoneToast && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-amber-400/90 shadow-2xl shadow-amber-500/40 text-white animate-pop-in backdrop-blur-xl">
@@ -269,7 +295,7 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
           }}
           onToggleSound={() => setSoundEnabled((prev) => !prev)}
           onOpenWallet={() => {}}
-          onOpenCreate={() => setShowCreateModal(true)}
+          onOpenCreate={handleOpenCreateGoal}
           onOpenSkinSelector={() => setShowSkinModal(true)}
           onOpenReset={() => {}}
         />
@@ -286,7 +312,7 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
             particles={particles}
             formatCurrency={formatBRL}
             currentBalance={metrics.balance}
-            onOpenCreate={() => setShowCreateModal(true)}
+            onOpenCreate={handleOpenCreateGoal}
           />
 
           {/* Action Bar (Depositar / Retirar / Mudar Herói) */}

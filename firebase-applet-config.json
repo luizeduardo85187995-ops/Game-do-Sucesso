@@ -1,12 +1,12 @@
 {
   "projectId": "jornada-do-sucesso-501fa",
-  "appId": "1:184133774893:web:cfc129f77d0b1e5dd852a4",
+  "appId": "1:184133774893:web:a82faf126ee656cfd852a4",
   "apiKey": "AIzaSyDyvmiKY-Ppygm0XUZ3gYnH_EfZzk2cbCU",
   "authDomain": "jornada-do-sucesso-501fa.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
+  "firestoreDatabaseId": "ai-studio-jornadadameta-5b8ff790-fb11-4b30-b75a-965488b23203",
   "storageBucket": "jornada-do-sucesso-501fa.firebasestorage.app",
   "messagingSenderId": "184133774893",
-  "measurementId": "G-YHGG0G16QM",
-  "oAuthClientId": "",
+  "measurementId": "",
+  "oAuthClientId": "184133774893-sd13f7kr2r4uudp9dj1l9hjsuf76lkj4.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

@@ -17,8 +17,11 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR, monthKey } from '../../utils/format';
 import { CATEGORY_COLORS } from '../../data/categories';
+import { useSubscription } from '../../context/SubscriptionContext';
+import { Crown, Lock } from 'lucide-react';
 
 export default function ReportsScreen() {
+  const { isPro, openProModal } = useSubscription();
   const { transactions, metrics, savingGoals, bankAccounts, investments, goals } = useFinance();
   const [activeChartType, setActiveChartType] = useState<'categories' | 'monthly' | 'distribution'>('categories');
   const [filterPeriod, setFilterPeriod] = useState<'all' | '3m' | '6m'>('all');
@@ -86,6 +89,10 @@ export default function ReportsScreen() {
 
   // High precision print/PDF generation
   const handleExportPDF = () => {
+    if (!isPro) {
+      openProModal();
+      return;
+    }
     setIsExporting(true);
     setTimeout(() => {
       window.print();
@@ -95,6 +102,10 @@ export default function ReportsScreen() {
 
   // CSV export
   const handleExportCSV = () => {
+    if (!isPro) {
+      openProModal();
+      return;
+    }
     const headers = ['Data', 'Tipo', 'Categoria', 'Valor', 'Conta', 'Observação'];
     const rows = transactions.map((t) => [
       t.date ? formatDateBR(t.date) : '',
@@ -166,6 +177,11 @@ export default function ReportsScreen() {
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
             <span>Exportar CSV</span>
+            {!isPro && (
+              <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 ml-0.5">
+                PRO
+              </span>
+            )}
           </button>
 
           <button
@@ -175,6 +191,11 @@ export default function ReportsScreen() {
           >
             <Printer className="w-4 h-4" />
             <span>{isExporting ? 'Preparando...' : 'Exportar Relatório em PDF'}</span>
+            {!isPro && (
+              <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 ml-0.5 shadow">
+                PRO
+              </span>
+            )}
           </button>
         </div>
       </div>
