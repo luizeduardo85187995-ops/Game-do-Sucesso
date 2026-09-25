@@ -51,8 +51,8 @@ export default function AIChatScreen() {
   useEffect(() => {
     const initialText =
       transactions.length === 0
-        ? `Olá! Sou o **Dante**, seu consultor de inteligência artificial no **Minhas Finanças**.\n\nEstou conectado ao seu sistema para te ajudar com:\n• 📊 **Diagnóstico financeiro** do seu fluxo de caixa e despesas\n• 💡 **Dicas práticas de investimentos** (CDB, Tesouro Selic, FIIs)\n• 🛡️ **Cálculo da reserva de emergência** ideal\n• 🎮 **Estratégias para acelerar sua Jornada da Meta**\n\nLance suas receitas e despesas ou digite sua dúvida financeira abaixo!`
-        : `Olá! Sou o **Dante**, seu consultor financeiro de inteligência artificial. Seus dados estão sincronizados em tempo real!\n\n**Seu Diagnóstico Rápido:**\n• Saldo Total: **${formatBRL(metrics.balance)}**\n• Resultado deste mês: **${formatBRL(metrics.monthNet)}**\n• Total Investido: **${formatBRL(metrics.investedTotal)}**\n• Renda Passiva Estimada: **${formatBRL(metrics.estimatedPassiveIncome)}/mês**\n• Lançamentos analisados: **${transactions.length}**\n\nComo posso te ajudar a planejar, economizar ou investir hoje?`;
+        ? `Olá! Sou o **Dante**, seu consultor financeiro com inteligência artificial no **Minhas Finanças**.\n\nEstou conectado aos seus registros para ajudar você com:\n• 📊 **Diagnóstico financeiro completo** do seu fluxo de caixa e despesas\n• 💡 **Orientações práticas de investimentos** (CDB, Tesouro Selic, FIIs e ações)\n• 🛡️ **Cálculo da reserva de emergência** ideal para sua tranquilidade\n• 🎮 **Estratégias práticas para acelerar sua Jornada da Meta**\n\nCadastre suas receitas e despesas ou digite sua dúvida financeira abaixo!`
+        : `Olá! Sou o **Dante**, seu consultor financeiro de inteligência artificial. Seus registros estão sincronizados em tempo real!\n\n**Seu Diagnóstico Atual:**\n• Saldo Total em Contas: **${formatBRL(metrics.balance)}**\n• Resultado deste Mês: **${formatBRL(metrics.monthNet)}**\n• Total em Investimentos: **${formatBRL(metrics.investedTotal)}**\n• Renda Passiva Estimada: **${formatBRL(metrics.estimatedPassiveIncome)}/mês**\n• Lançamentos analisados: **${transactions.length}**\n\nComo posso ajudar você a planejar, economizar ou investir melhor hoje?`;
 
     setMessages([
       {
@@ -109,11 +109,11 @@ export default function AIChatScreen() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Falha na resposta da IA';
+      const errMsg = err instanceof Error ? err.message : 'Falha ao processar a resposta da IA.';
       const errorAssistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `⚠️ **Ops:** ${errMsg}\n\nPor favor, tente novamente em instantes.`,
+        content: `⚠️ **Aviso:** ${errMsg}\n\nPor favor, tente novamente em instantes.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorAssistantMsg]);
@@ -135,14 +135,14 @@ export default function AIChatScreen() {
     { label: 'Analise meus maiores gastos', query: 'Analise minhas transações e identifique para onde está indo a maior parte do meu dinheiro.' },
     { label: 'Calcular minha reserva ideal', query: 'Quanto eu deveria ter de reserva de emergência com base nos meus gastos mensais e como montar?' },
     { label: 'Regra orçamentária 50/30/20', query: 'Como posso aplicar a regra 50/30/20 na prática com os meus ganhos e despesas atuais?' },
-    { label: 'Como acelerar a Jornada da Meta?', query: 'Me dê um plano de ação prático para economizar mais rápido e alcançar o degrau topo da minha meta.' },
+    { label: 'Como acelerar a Jornada da Meta?', query: 'Me dê um plano de ação prático para economizar mais rápido e alcançar o topo da minha meta na Jornada.' },
   ];
 
   if (!isPro) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
         <ProFeatureLock
-          title="Dante IA: Consultoria Financeira com IA"
+          title="Dante IA: Consultor Financeiro Particular"
           subtitle="Tenha um consultor financeiro particular inteligente conectado aos seus lançamentos, receitas, despesas e metas em tempo real."
           icon={<Bot className="w-10 h-10 text-slate-950" />}
           benefits={[
@@ -280,7 +280,7 @@ export default function AIChatScreen() {
               </div>
               <div className="rounded-2xl px-4 py-2.5 bg-slate-900/90 border border-white/10 text-cyan-400 font-mono text-xs flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                <span>Dante está analisando seus dados e digitando...</span>
+                <span>Dante está analisando seus dados e preparando a orientação...</span>
               </div>
             </div>
           )}
@@ -312,7 +312,7 @@ export default function AIChatScreen() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ex: Como economizar R$ 500 este mês? / Analise meus investimentos..."
+              placeholder="Ex.: Como economizar R$ 500 este mês? / Analise meus investimentos..."
               rows={2}
               className="flex-1 bg-slate-900/80 border border-white/15 focus:border-cyan-400 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 resize-none font-sans"
             />
@@ -325,9 +325,9 @@ export default function AIChatScreen() {
               <span className="hidden sm:inline font-mono text-xs">ENVIAR</span>
             </button>
           </div>
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 mt-2 px-1">
-            <span>Powered by Pollinations AI • Modelo LLM sem custos</span>
-            <span className="hidden sm:inline">Pressione Enter para enviar (Shift+Enter para quebra de linha)</span>
+          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-2 px-1">
+            <span>Dante Inteligência Financeira • Consultor particular em tempo real</span>
+            <span className="hidden sm:inline">Pressione Enter para enviar (Shift+Enter para quebrar linha)</span>
           </div>
         </div>
       </div>
@@ -341,7 +341,7 @@ function renderFormattedText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={i} className="font-bold text-cyan-300">
+        <strong key={i} className="font-bold text-cyan-300 print:text-slate-900">
           {part.slice(2, -2)}
         </strong>
       );
