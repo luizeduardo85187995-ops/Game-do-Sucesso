@@ -706,13 +706,6 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
       {activeSection === 'data' && (
         <div className="space-y-6">
           {/* Status Banners */}
-          {exportSuccess && (
-            <div className="rounded-2xl bg-emerald-500/20 border border-emerald-400/50 p-4 text-emerald-300 text-xs font-mono flex items-center gap-2.5 animate-pop-in">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span>Backup JSON gerado e baixado com sucesso! Guarde este arquivo em segurança.</span>
-            </div>
-          )}
-
           {importStatus && (
             <div className={`rounded-2xl p-4 text-xs font-mono flex items-center gap-2.5 animate-pop-in ${
               importStatus.type === 'success'
@@ -736,28 +729,7 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
           )}
 
           {/* Backup & Export Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Export JSON */}
-            <div className="rounded-3xl cyber-card p-5 sm:p-6 flex flex-col justify-between gap-4">
-              <div className="space-y-2">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
-                  <Download className="w-5 h-5" />
-                </div>
-                <h4 className="font-bold text-white text-base">Exportar Backup Completo</h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Baixa um arquivo JSON com todas as suas transações, contas bancárias, metas e investimentos.
-                </p>
-              </div>
-
-              <button
-                onClick={handleExportJSON}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-black text-xs transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 active:scale-95"
-              >
-                <Download className="w-4 h-4" />
-                <span>BAIXAR BACKUP (JSON)</span>
-              </button>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Import JSON */}
             <div className="rounded-3xl cyber-card p-5 sm:p-6 flex flex-col justify-between gap-4">
               <div className="space-y-2">
@@ -1266,6 +1238,38 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
                 <p className="text-[10px] text-slate-400">Investimentos na B3 em ações, fundos imobiliários e renda fixa.</p>
               </div>
             </div>
+          </div>
+
+          {/* Admin Database Backup Export */}
+          <div className="rounded-3xl bg-slate-900/80 border border-cyan-500/30 p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold shrink-0">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Backup do Banco de Dados (Exclusivo Administrador)</h4>
+                  <p className="text-xs text-slate-400">
+                    Exportação técnica do banco completo em JSON para manutenção, segurança e auditoria do dono.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExportJSON}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 active:scale-95 shrink-0"
+              >
+                <Download className="w-4 h-4" />
+                <span>BAIXAR BACKUP (JSON)</span>
+              </button>
+            </div>
+            {exportSuccess && (
+              <div className="rounded-xl bg-emerald-500/20 border border-emerald-400/40 p-3 text-emerald-300 text-xs font-mono flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Backup JSON gerado e baixado com sucesso!</span>
+              </div>
+            )}
           </div>
         </div>
       )}
