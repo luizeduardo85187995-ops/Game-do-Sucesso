@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Bot,
   Crown,
+  Compass,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
@@ -126,191 +127,184 @@ export default function OverviewScreen({
         </div>
       )}
 
-      {/* Top Futuristic Command Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-cyan-500/15">
+      {/* Top Command Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-cyan-500/15">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shadow-lg shadow-cyan-500/20">
-            <Activity className="w-5 h-5 animate-pulse" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 dark:bg-cyan-500/10 dark:text-cyan-400 dark:border dark:border-cyan-400/30 flex items-center justify-center shadow-sm">
+            <Activity className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                Painel Quântico <span className="text-cyan-400 neon-text-cyan">OS</span>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                Visão Geral Financeira
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 text-[10px] font-mono font-bold tracking-widest flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                ONLINE
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-400/30 dark:text-emerald-300 text-[10px] font-bold tracking-wide flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                Atualizado
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-mono">Telemetria de fluxo de caixa, patrimônio e escalada em tempo real</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Controle integrado de receitas, despesas, saldos bancários e metas
+            </p>
           </div>
         </div>
 
-        {/* Quick Cyber Actions */}
+        {/* Quick Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => onNavigateToTab('ai')}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500/25 to-blue-600/25 hover:from-cyan-500/35 hover:to-blue-600/35 border border-cyan-400/60 text-cyan-200 text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/20 active:scale-95 ring-1 ring-cyan-400/30"
+            className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 dark:bg-gradient-to-r dark:from-cyan-500/25 dark:to-blue-600/25 dark:hover:from-cyan-500/35 dark:border-cyan-400/60 dark:text-cyan-200 text-xs font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95"
           >
-            <Bot className="w-4 h-4 text-cyan-300" />
+            <Bot className="w-4 h-4 text-blue-600 dark:text-cyan-300" />
             <span>Dante (IA)</span>
           </button>
           <button
-            onClick={() => onOpenNewTransaction('expense')}
-            className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
-          >
-            <ArrowDownRight className="w-3.5 h-3.5 text-rose-400" />
-            <span>- Despesa</span>
-          </button>
-          <button
             onClick={() => onOpenNewTransaction('income')}
-            className="px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+            className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
           >
-            <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+            <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>+ Receita</span>
           </button>
           <button
-            onClick={() => onNavigateToGame()}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-xs font-black transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/30 hover:brightness-110 active:scale-95"
+            onClick={() => onOpenNewTransaction('expense')}
+            className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
           >
-            <Gamepad2 className="w-4 h-4" />
-            <span>Jogar Escalada</span>
+            <ArrowDownRight className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+            <span>- Despesa</span>
+          </button>
+          <button
+            onClick={() => onNavigateToGame()}
+            className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Jornada da Meta</span>
           </button>
         </div>
       </div>
 
-      {/* Terminal Quântico: Auto-Lançador por Linguagem Natural */}
+      {/* Auto-Lançador por Linguagem Natural */}
       <SmartQuickLauncher />
 
-      {/* Hero Financial Metrics Bar with Cyber HUD Cards */}
+      {/* Financial Metrics Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Saldo Consolidado */}
-        <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group hud-border-corners">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-widest">
-              // Saldo em Contas
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Saldo em Contas
             </span>
-            <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 flex items-center justify-center shadow-md shadow-cyan-500/20">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 dark:bg-cyan-500/20 dark:border dark:border-cyan-400/30 dark:text-cyan-300 flex items-center justify-center shadow-sm">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-white tracking-tight font-mono">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
             {formatBRL(metrics.balance)}
           </div>
-          <div className="text-[11px] text-cyan-400/80 mt-1 flex items-center gap-1 font-mono">
-            <Zap className="w-3 h-3 text-cyan-400" />
-            <span>{bankAccounts.length} contas conectadas</span>
+          <div className="text-[11px] text-slate-500 dark:text-cyan-400/80 mt-1 flex items-center gap-1 font-mono">
+            <Zap className="w-3 h-3 text-blue-500 dark:text-cyan-400" />
+            <span>{bankAccounts.length} {bankAccounts.length === 1 ? 'instituição ativa' : 'instituições ativas'}</span>
           </div>
         </div>
 
         {/* Entradas do Mês */}
-        <div className="cyber-card rounded-2xl p-4 sm:p-5 border-emerald-500/30 bg-emerald-950/15 relative overflow-hidden group hud-border-corners">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono font-semibold text-emerald-400/90 uppercase tracking-widest">
-              // Entradas do Mês
+            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400/90 uppercase tracking-wider">
+              Entradas do Mês
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center justify-center shadow-md shadow-emerald-500/20">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:border dark:border-emerald-400/40 dark:text-emerald-300 flex items-center justify-center shadow-sm">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight font-mono neon-text-emerald">
+          <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight font-mono">
             {formatBRL(metrics.monthIncome)}
           </div>
-          <div className="text-[11px] text-emerald-400/70 mt-1 font-mono">
-            Fluxo Positivo Ativo
+          <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/70 mt-1 font-mono font-medium">
+            Receitas Confirmadas
           </div>
         </div>
 
         {/* Saídas do Mês */}
-        <div className="cyber-card rounded-2xl p-4 sm:p-5 border-orange-500/30 bg-orange-950/15 relative overflow-hidden group hud-border-corners">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono font-semibold text-orange-400/90 uppercase tracking-widest">
-              // Saídas do Mês
+            <span className="text-[11px] font-bold text-rose-700 dark:text-orange-400/90 uppercase tracking-wider">
+              Saídas do Mês
             </span>
-            <div className="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-400/40 text-orange-300 flex items-center justify-center shadow-md shadow-orange-500/20">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-700 dark:bg-orange-500/20 dark:border dark:border-orange-400/40 dark:text-orange-300 flex items-center justify-center shadow-sm">
               <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-orange-400 tracking-tight font-mono">
+          <div className="text-xl sm:text-2xl font-black text-rose-600 dark:text-orange-400 tracking-tight font-mono">
             {formatBRL(metrics.monthExpense)}
           </div>
-          <div className="text-[11px] text-orange-400/70 mt-1 font-mono">
-            Consumo Operacional
+          <div className="text-[11px] text-rose-700/80 dark:text-orange-400/70 mt-1 font-mono font-medium">
+            Despesas do Período
           </div>
         </div>
 
-        {/* Balanço Líquido */}
-        <div className={`cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group hud-border-corners ${
-          metrics.monthNet >= 0
-            ? 'border-cyan-500/30 bg-cyan-950/15'
-            : 'border-rose-500/30 bg-rose-950/15'
-        }`}>
+        {/* Resultado Líquido */}
+        <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono font-semibold text-slate-400 uppercase tracking-widest">
-              // Balanço Líquido
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Resultado Líquido
             </span>
-            <div className={`w-8 h-8 rounded-xl border flex items-center justify-center ${
-              metrics.monthNet >= 0 ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300' : 'bg-rose-500/20 border-rose-400/40 text-rose-300'
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+              metrics.monthNet >= 0
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-cyan-500/20 dark:border dark:border-cyan-400/40 dark:text-cyan-300'
+                : 'bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:border dark:border-rose-400/40 dark:text-rose-300'
             }`}>
               {metrics.monthNet >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             </div>
           </div>
           <div className={`text-xl sm:text-2xl font-black tracking-tight font-mono ${
-            metrics.monthNet >= 0 ? 'text-cyan-300 neon-text-cyan' : 'text-rose-400'
+            metrics.monthNet >= 0 ? 'text-emerald-600 dark:text-cyan-300' : 'text-rose-600 dark:text-rose-400'
           }`}>
             {formatBRL(metrics.monthNet)}
           </div>
-          <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1 font-mono">
-            <span>Taxa Poupança: <strong className="text-amber-400 font-bold">{metrics.savingsRate.toFixed(0)}%</strong></span>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 font-mono">
+            <span>Taxa de Poupança: <strong className="text-amber-600 dark:text-amber-400 font-bold">{metrics.savingsRate.toFixed(0)}%</strong></span>
           </div>
         </div>
       </div>
 
-      {/* Cyber Mountain Hologram Banner (Connected to the Mountain Climb Game) */}
-      <div className="relative rounded-3xl p-5 sm:p-6 cyber-card-gold overflow-hidden animate-gold-pulse group">
-        {/* Subtle grid background inside banner */}
-        <div className="absolute inset-0 cyber-grid opacity-30 pointer-events-none" />
-        <div className="absolute -right-16 -top-16 w-56 h-56 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-
+      {/* Goal Journey Banner */}
+      <div className="relative rounded-3xl p-5 sm:p-6 cyber-card-gold overflow-hidden group">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-3xl shrink-0 shadow-xl shadow-amber-500/30 ring-2 ring-amber-300/40 animate-pulse">
-              {activeGoal ? activeGoal.emoji : '🏔️'}
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-3xl shrink-0 shadow-lg shadow-amber-500/20">
+              {activeGoal ? activeGoal.emoji : '🎯'}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-amber-400/25 border border-amber-400/60 text-amber-300 text-[10px] font-mono font-black uppercase tracking-wider flex items-center gap-1">
-                  <Gamepad2 className="w-3 h-3" /> ESCALADA HOLOGRÁFICA ATIVA
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Compass className="w-3 h-3" /> Jornada da Meta Ativa
                 </span>
-                <span className="text-xs text-slate-400 font-mono">25 Degraus Quânticos</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Progresso em Tempo Real</span>
               </div>
-              <h3 className="text-lg sm:text-xl font-black text-white mt-1 group-hover:text-amber-200 transition-colors">
-                {activeGoal ? activeGoal.name : 'Selecione uma Meta para Escalar'}
+              <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-1 group-hover:text-amber-700 dark:group-hover:text-amber-200 transition-colors">
+                {activeGoal ? activeGoal.name : 'Selecione uma Meta para Acompanhar'}
               </h3>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Economize para avançar o herói rumo ao cume com efeitos de altitude e celebrações
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                Economize para avançar degrau a degrau rumo ao seu objetivo patrimonial
               </p>
             </div>
           </div>
 
-          {/* Progress gauge and play button */}
+          {/* Progress gauge and action button */}
           <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
             {activeGoal && (
-              <div className="bg-slate-900/80 border border-amber-400/30 rounded-2xl p-3 min-w-[200px]">
+              <div className="bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-amber-400/30 rounded-2xl p-3 min-w-[200px] shadow-sm">
                 <div className="flex justify-between text-xs font-mono mb-1">
-                  <span className="text-slate-400">Progresso</span>
-                  <span className="text-amber-400 font-bold">{goalPercent.toFixed(1)}%</span>
+                  <span className="text-slate-500 dark:text-slate-400">Progresso</span>
+                  <span className="text-amber-700 dark:text-amber-400 font-bold">{goalPercent.toFixed(1)}%</span>
                 </div>
-                <div className="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden p-0.5 border border-amber-500/20">
+                <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden p-0.5">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 transition-all duration-700 shadow-md shadow-amber-400/50"
+                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-700"
                     style={{ width: `${goalPercent}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] font-mono text-slate-400 mt-1.5">
+                <div className="flex justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1.5">
                   <span>{formatBRL(activeGoal.currentAmount)}</span>
                   <span>Alvo: {formatBRL(activeGoal.targetAmount)}</span>
                 </div>
@@ -319,10 +313,10 @@ export default function OverviewScreen({
 
             <button
               onClick={() => onNavigateToGame(activeGoal?.id)}
-              className="py-3 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-sm transition-all shadow-xl shadow-amber-500/30 hover:scale-105 active:scale-95 flex items-center justify-center gap-2 group/btn"
+              className="py-3 px-6 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm transition-all shadow-md hover:scale-105 active:scale-95 flex items-center justify-center gap-2 group/btn"
             >
-              <Gamepad2 className="w-4 h-4 group-hover/btn:rotate-12 transition-transform" />
-              <span>SUBIR NA MONTANHA</span>
+              <Compass className="w-4 h-4 group-hover/btn:rotate-45 transition-transform" />
+              <span>ACOMPANHAR META</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -433,8 +427,8 @@ export default function OverviewScreen({
       <div className="cyber-card rounded-3xl p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-cyan-400" />
-            <h3 className="font-bold text-white text-base">Lançamentos Recentes no Ledger</h3>
+            <Cpu className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">Lançamentos Recentes</h3>
           </div>
 
           <button

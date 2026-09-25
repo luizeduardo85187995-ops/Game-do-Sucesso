@@ -72,26 +72,9 @@ export default function TopAdBanner() {
     }
   }, [isPro, googleAdSenseClientId, googleAdSenseSlotId]);
 
-  // Se o usuário for assinante PRO, não exibe anúncio!
+  // Se o usuário for assinante PRO, não exibe nenhum anúncio ou faixa superior!
   if (isPro) {
-    return (
-      <div className={`border-b px-3 py-1 flex items-center justify-between text-[11px] font-mono select-none ${
-        isLight
-          ? 'bg-amber-50/80 border-amber-200 text-amber-900'
-          : 'bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-amber-500/10 border-amber-500/20 text-amber-300'
-      }`}>
-        <div className="flex items-center gap-2">
-          <Crown className={`w-3.5 h-3.5 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
-          <span className="font-bold">STATUS PRO ATIVADO</span>
-          <span className={isLight ? 'text-amber-400' : 'text-slate-500'}>|</span>
-          <span className={`hidden sm:inline ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Experiência VIP 100% Livre de Anúncios</span>
-        </div>
-        <div className={`flex items-center gap-1.5 text-[10px] ${isLight ? 'text-emerald-700 font-bold' : 'text-emerald-400'}`}>
-          <ShieldCheck className="w-3 h-3" />
-          <span>RECURSOS ILIMITADOS</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // Se o usuário inseriu o Google AdSense Client ID real

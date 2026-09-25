@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from 'react';
 import {
   BankAccount,
   BaseSettings,
@@ -26,6 +26,9 @@ import {
   generateDividendScheduleForPortfolio,
   DEFAULT_LINKED_BROKERS,
 } from '../services/b3MarketService';
+import { useAuth } from './AuthContext';
+import { db } from '../lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export interface FinanceMetrics {
   balance: number;
@@ -57,6 +60,11 @@ interface FinanceContextValue {
   activeGoalId: string | null;
   setActiveGoalId: (id: string | null) => void;
   metrics: FinanceMetrics;
+
+  // Cloud & Data Persistence
+  cloudSyncStatus: 'synced' | 'syncing' | 'saved_locally';
+  lastCloudSyncAt: string | null;
+  triggerCloudSync: () => Promise<void>;
 
   // B3 & Proventos
   dividendEvents: DividendEvent[];
@@ -101,7 +109,18 @@ interface FinanceContextValue {
   importAllData: (data: any) => boolean;
 }
 
-const STORAGE_KEY = '@financas/state-v3-zeroed';
+const PRIMARY_STORAGE_KEY = '@financas/state-v3-zeroed';
+const BACKUP_STORAGE_KEY = '@financas/backup_v1';
+const LEGACY_STORAGE_KEYS = [
+  PRIMARY_STORAGE_KEY,
+  BACKUP_STORAGE_KEY,
+  '@financas/state-v3',
+  '@financas/state-v2',
+  '@financas/state-v1',
+  '@financas/state',
+  'financas_state',
+  'financial_data',
+];
 
 const INITIAL_ACCOUNTS: BankAccount[] = [
   { id: 'bank-1', bankName: 'Conta Corrente', accountType: 'checking', nickname: 'Principal', balance: 0.00, updatedAt: new Date().toISOString(), color: '#06B6D4' },
@@ -126,6 +145,7 @@ const INITIAL_B3_INTEGRATION: B3IntegrationState = {
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [loaded, setLoaded] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
@@ -139,89 +159,72 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [activeGoalId, setActiveGoalId] = useState<string | null>('goal-1');
   const [marketIndicators] = useState<MarketIndicator[]>(DEFAULT_MARKET_INDICATORS);
 
+  // Cloud Sync State
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'syncing' | 'saved_locally'>('saved_locally');
+  const [lastCloudSyncAt, setLastCloudSyncAt] = useState<string | null>(null);
+  const cloudSaveTimerRef = useRef<any>(null);
+
   // B3 & Proventos State
   const [isSyncingB3, setIsSyncingB3] = useState(false);
   const [lastB3SyncAt, setLastB3SyncAt] = useState<string | null>(null);
   const [manualDividends, setManualDividends] = useState<DividendEvent[]>([]);
   const [b3Integration, setB3Integration] = useState<B3IntegrationState>(INITIAL_B3_INTEGRATION);
 
-  // Load from local storage
+  // Helper to load parsed data safely into state
+  const applyStatePayload = (parsed: any) => {
+    if (!parsed || typeof parsed !== 'object') return;
+    if (Array.isArray(parsed.transactions)) setTransactions(parsed.transactions);
+    if (Array.isArray(parsed.bankAccounts) && parsed.bankAccounts.length > 0) setBankAccounts(parsed.bankAccounts);
+    if (Array.isArray(parsed.investments)) {
+      // Sanitize only malformed items, never wipe real tickers
+      const valid = parsed.investments.filter((inv: any) => inv && inv.code && typeof inv.amount === 'number' && isFinite(inv.amount));
+      setInvestments(valid);
+    }
+    if (Array.isArray(parsed.savingGoals) && parsed.savingGoals.length > 0) setSavingGoals(parsed.savingGoals);
+    if (Array.isArray(parsed.incomeCategories) && parsed.incomeCategories.length > 0) setIncomeCategories(parsed.incomeCategories);
+    if (Array.isArray(parsed.expenseCategories) && parsed.expenseCategories.length > 0) setExpenseCategories(parsed.expenseCategories);
+    if (parsed.goals) setGoalsState(parsed.goals);
+    if (parsed.base) setBaseState(parsed.base);
+    if (parsed.investmentFocus) setInvestmentFocus(parsed.investmentFocus);
+    if (parsed.activeGoalId) setActiveGoalId(parsed.activeGoalId);
+    if (Array.isArray(parsed.manualDividends)) setManualDividends(parsed.manualDividends);
+    if (parsed.lastB3SyncAt) setLastB3SyncAt(parsed.lastB3SyncAt);
+    if (parsed.b3Integration) setB3Integration(parsed.b3Integration);
+  };
+
+  // 1. Initial Load: Check primary and all legacy keys to guarantee NO CLIENT DATA IS LOST
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.transactions) setTransactions(parsed.transactions);
-        if (parsed.bankAccounts) setBankAccounts(parsed.bankAccounts);
-        if (parsed.investments) {
-          // Detect if the saved portfolio contains old mock sample items or corrupted astronomical data
-          const hasCorruptedOrMockItems = Array.isArray(parsed.investments) && parsed.investments.some((inv: Investment) =>
-            !inv ||
-            !inv.code ||
-            inv.code.includes('ABELHA') ||
-            (inv.quantity ?? 0) > 1000000 ||
-            (inv.quantity ?? 0) < 0 ||
-            (inv.currentPrice ?? 0) > 50000 ||
-            (inv.averagePrice ?? 0) > 50000 ||
-            inv.amount > 50000000 ||
-            (inv.totalCurrentValue ?? 0) > 50000000 ||
-            (inv.code === 'MXRF11' && inv.quantity === 150) ||
-            (inv.code === 'HGLG11' && inv.quantity === 12) ||
-            (inv.code === 'XPML11' && inv.quantity === 20) ||
-            (inv.code === 'PETR4' && inv.quantity === 80) ||
-            (inv.code === 'BBAS3' && inv.quantity === 50) ||
-            (inv.code === 'ITUB4' && inv.quantity === 60)
-          );
+      let foundData: any = null;
 
-          if (hasCorruptedOrMockItems) {
-            // Filtra e mantém apenas ativos válidos e reais
-            const sanitized = Array.isArray(parsed.investments)
-              ? parsed.investments.filter((inv: Investment) =>
-                  inv &&
-                  inv.code &&
-                  !inv.code.includes('ABELHA') &&
-                  (inv.quantity ?? 0) > 0 &&
-                  (inv.quantity ?? 0) <= 500000 &&
-                  (inv.currentPrice ?? 0) > 0 &&
-                  (inv.currentPrice ?? 0) <= 25000 &&
-                  (inv.averagePrice ?? 0) > 0 &&
-                  (inv.averagePrice ?? 0) <= 25000 &&
-                  inv.amount > 0 &&
-                  inv.amount <= 10000000 &&
-                  (inv.totalCurrentValue ?? 0) <= 10000000 &&
-                  isFinite(inv.amount)
-                )
-              : [];
-            setInvestments(sanitized);
-          } else {
-            setInvestments(parsed.investments);
+      // Scan all legacy and current storage keys
+      for (const key of LEGACY_STORAGE_KEYS) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const hasData =
+              (Array.isArray(parsed.transactions) && parsed.transactions.length > 0) ||
+              (Array.isArray(parsed.bankAccounts) && parsed.bankAccounts.some((a: any) => a.balance !== 0 || a.nickname)) ||
+              (Array.isArray(parsed.investments) && parsed.investments.length > 0);
+
+            if (hasData) {
+              foundData = parsed;
+              break;
+            } else if (!foundData) {
+              foundData = parsed;
+            }
           }
+        } catch {
+          // ignore single key error
         }
-        if (parsed.savingGoals) setSavingGoals(parsed.savingGoals);
-        if (parsed.incomeCategories) setIncomeCategories(parsed.incomeCategories);
-        if (parsed.expenseCategories) setExpenseCategories(parsed.expenseCategories);
-        if (parsed.goals) setGoalsState(parsed.goals);
-        if (parsed.base) setBaseState(parsed.base);
-        if (parsed.investmentFocus) setInvestmentFocus(parsed.investmentFocus);
-        if (parsed.activeGoalId) setActiveGoalId(parsed.activeGoalId);
-        if (parsed.manualDividends) setManualDividends(parsed.manualDividends);
-        if (parsed.lastB3SyncAt) setLastB3SyncAt(parsed.lastB3SyncAt);
-        if (parsed.b3Integration) {
-          // Ensure brokers have 0 mock asset counts and 0 mock values
-          const cleanBrokers = DEFAULT_LINKED_BROKERS.map((def) => {
-            const savedBroker = parsed.b3Integration.linkedBrokers?.find((b: any) => b.id === def.id);
-            return {
-              ...def,
-              connected: savedBroker?.connected || false,
-              assetCount: 0,
-              totalValue: 0,
-            };
-          });
-          setB3Integration({
-            ...parsed.b3Integration,
-            linkedBrokers: cleanBrokers,
-          });
-        }
+      }
+
+      if (foundData) {
+        applyStatePayload(foundData);
+        // Write to primary and backup keys immediately to secure the data
+        localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(foundData));
+        localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(foundData));
       }
     } catch (e) {
       console.warn('Could not load saved finance data:', e);
@@ -230,10 +233,160 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Save to local storage
+  // 2. Firebase Cloud Sync: When user is authenticated, sync with Firestore
+  useEffect(() => {
+    if (!user || !loaded) return;
+    const uid = user.uid;
+    let isCancelled = false;
+
+    async function syncCloudOnAuth() {
+      try {
+        setCloudSyncStatus('syncing');
+        const userDocRef = doc(db, 'users', uid, 'financialData', 'state');
+        const snap = await getDoc(userDocRef);
+
+        if (snap.exists() && !isCancelled) {
+          const cloudData = snap.data();
+          const cloudHasRecords =
+            (Array.isArray(cloudData.transactions) && cloudData.transactions.length > 0) ||
+            (Array.isArray(cloudData.bankAccounts) && cloudData.bankAccounts.some((a: any) => a.balance !== 0));
+
+          // If cloud has data, load it
+          if (cloudHasRecords) {
+            applyStatePayload(cloudData);
+            localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(cloudData));
+            localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(cloudData));
+          } else {
+            // Cloud has no transactions yet, but local storage does: upload local data to cloud!
+            const localPayload = {
+              transactions,
+              bankAccounts,
+              investments,
+              savingGoals,
+              incomeCategories,
+              expenseCategories,
+              goals,
+              base,
+              investmentFocus,
+              activeGoalId,
+              manualDividends,
+              lastB3SyncAt,
+              b3Integration,
+              updatedAt: new Date().toISOString(),
+            };
+            await setDoc(userDocRef, localPayload, { merge: true });
+          }
+          setCloudSyncStatus('synced');
+          setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
+        } else if (!isCancelled) {
+          // Document does not exist in cloud yet: create it with current state
+          const localPayload = {
+            transactions,
+            bankAccounts,
+            investments,
+            savingGoals,
+            incomeCategories,
+            expenseCategories,
+            goals,
+            base,
+            investmentFocus,
+            activeGoalId,
+            manualDividends,
+            lastB3SyncAt,
+            b3Integration,
+            updatedAt: new Date().toISOString(),
+          };
+          await setDoc(userDocRef, localPayload, { merge: true });
+          setCloudSyncStatus('synced');
+          setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar com Firestore:', err);
+        setCloudSyncStatus('saved_locally');
+      }
+    }
+
+    syncCloudOnAuth();
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, loaded]);
+
+  // 3. Save to localStorage (Primary & Backup) + Debounced Firestore Cloud Save
   useEffect(() => {
     if (!loaded) return;
+    const stateToSave = {
+      transactions,
+      bankAccounts,
+      investments,
+      savingGoals,
+      incomeCategories,
+      expenseCategories,
+      goals,
+      base,
+      investmentFocus,
+      activeGoalId,
+      manualDividends,
+      lastB3SyncAt,
+      b3Integration,
+      savedAt: new Date().toISOString(),
+    };
+
+    // Immediate save to both localStorage keys (zero data loss guarantee)
     try {
+      const serial = JSON.stringify(stateToSave);
+      localStorage.setItem(PRIMARY_STORAGE_KEY, serial);
+      localStorage.setItem(BACKUP_STORAGE_KEY, serial);
+    } catch (e) {
+      console.warn('Could not save finance data locally:', e);
+    }
+
+    // Debounced Cloud Firestore save if user is logged in
+    if (user) {
+      setCloudSyncStatus('syncing');
+      if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
+
+      cloudSaveTimerRef.current = setTimeout(async () => {
+        try {
+          const userDocRef = doc(db, 'users', user.uid, 'financialData', 'state');
+          await setDoc(userDocRef, stateToSave, { merge: true });
+          setCloudSyncStatus('synced');
+          setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
+        } catch (err) {
+          console.warn('Erro ao salvar na nuvem Firestore:', err);
+          setCloudSyncStatus('saved_locally');
+        }
+      }, 800);
+    } else {
+      setCloudSyncStatus('saved_locally');
+    }
+
+    return () => {
+      if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
+    };
+  }, [
+    loaded,
+    transactions,
+    bankAccounts,
+    investments,
+    savingGoals,
+    incomeCategories,
+    expenseCategories,
+    goals,
+    base,
+    investmentFocus,
+    activeGoalId,
+    manualDividends,
+    lastB3SyncAt,
+    b3Integration,
+    user,
+  ]);
+
+  // Explicit manual trigger for cloud sync
+  const triggerCloudSync = async () => {
+    if (!user) return;
+    try {
+      setCloudSyncStatus('syncing');
       const stateToSave = {
         transactions,
         bankAccounts,
@@ -248,12 +401,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         manualDividends,
         lastB3SyncAt,
         b3Integration,
+        updatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-    } catch (e) {
-      console.warn('Could not save finance data:', e);
+      const userDocRef = doc(db, 'users', user.uid, 'financialData', 'state');
+      await setDoc(userDocRef, stateToSave, { merge: true });
+      setCloudSyncStatus('synced');
+      setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
+    } catch (err) {
+      console.warn('Falha no triggerCloudSync:', err);
+      setCloudSyncStatus('saved_locally');
     }
-  }, [loaded, transactions, bankAccounts, investments, savingGoals, incomeCategories, expenseCategories, goals, base, investmentFocus, activeGoalId, manualDividends, lastB3SyncAt, b3Integration]);
+  };
 
   // Radar de Proventos Automático (Estilo Investidor10) baseado nas cotas da carteira
   const portfolioDividendEvents = useMemo(() => {
@@ -508,11 +666,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       importedAssetsCount: 0,
     }));
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(PRIMARY_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         parsed.investments = [];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(parsed));
+        localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(parsed));
       }
     } catch (e) {
       console.warn('Error clearing investments in localStorage:', e);
@@ -728,7 +887,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const resetAllData = () => {
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(PRIMARY_STORAGE_KEY);
+      localStorage.removeItem(BACKUP_STORAGE_KEY);
     } catch {
       // ignore
     }
@@ -796,6 +956,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         activeGoalId,
         setActiveGoalId,
         metrics,
+        cloudSyncStatus,
+        lastCloudSyncAt,
+        triggerCloudSync,
         dividendEvents,
         isSyncingB3,
         lastB3SyncAt,

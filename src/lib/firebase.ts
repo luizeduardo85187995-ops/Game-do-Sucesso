@@ -24,7 +24,9 @@ const firebaseConfig = { ...officialConfig, ...rawConfig };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = rawConfig.firestoreDatabaseId
+  ? getFirestore(app, rawConfig.firestoreDatabaseId)
+  : getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
 // Config prompt to ensure account selection popup works smoothly

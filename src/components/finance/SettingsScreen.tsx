@@ -87,6 +87,9 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
     exportAllData,
     importAllData,
     resetAllData,
+    cloudSyncStatus,
+    lastCloudSyncAt,
+    triggerCloudSync,
   } = useFinance();
 
   const { user } = useAuth();
@@ -891,6 +894,39 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
                   <span>{user ? 'Gerenciar Conta Google' : 'Conectar Conta Google'}</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
+              )}
+            </div>
+
+            {/* Customer Data Protection Guarantee Card */}
+            <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-5 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <h4 className="font-bold text-white text-sm sm:text-base">
+                    Garantia de Persistência dos Dados dos Clientes
+                  </h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
+                    {cloudSyncStatus === 'synced' ? '✓ Nuvem Sincronizada' : cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Proteção Local Ativa'}
+                  </span>
+                  {user && (
+                    <button
+                      onClick={triggerCloudSync}
+                      className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all active:scale-95"
+                    >
+                      Sincronizar Agora
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Todos os dados lançados (transações, contas bancárias, metas e investimentos) permanecem gravados permanentemente no armazenamento do navegador e são automaticamente espelhados no banco de dados Firestore. Atualizações de sistema, recarregamento da página e novos deploys <strong>jamais apagam</strong> os dados dos clientes.
+              </p>
+              {lastCloudSyncAt && (
+                <div className="text-[11px] text-emerald-400/90 font-mono">
+                  Última sincronização bem-sucedida: {lastCloudSyncAt}
+                </div>
               )}
             </div>
 

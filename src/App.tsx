@@ -23,6 +23,9 @@ import {
   EyeOff,
   Palette,
   Crown,
+  CheckCircle2,
+  ShieldCheck,
+  Compass,
 } from 'lucide-react';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
@@ -57,17 +60,16 @@ type TabId =
   | 'settings'
   | 'google';
 
-const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }>; highlight?: boolean; badge?: string; isGoogle?: boolean }[] = [
+// Clean, high-value primary financial modules (Settings and Google account sit dedicated on top right header)
+const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }>; highlight?: boolean; badge?: string }[] = [
   { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
   { id: 'transactions', label: 'Lançamentos', icon: ReceiptText },
-  { id: 'banks', label: 'Bancos', icon: Building2 },
+  { id: 'banks', label: 'Bancos & Contas', icon: Building2 },
   { id: 'investments', label: 'Investimentos', icon: TrendingUp, badge: 'PRO' },
   { id: 'planning', label: 'Planejar', icon: Target },
   { id: 'reports', label: 'Relatórios', icon: PieChart },
   { id: 'ai', label: 'Dante IA', icon: Bot, badge: 'PRO' },
-  { id: 'game', label: 'Jornada da Meta', icon: Gamepad2, highlight: true },
-  { id: 'settings', label: 'Configurações', icon: Settings },
-  { id: 'google', label: 'Entrar com Google', icon: GoogleLogo, isGoogle: true },
+  { id: 'game', label: 'Jornada da Meta', icon: Compass, highlight: true },
 ];
 
 function AppContent() {
@@ -76,7 +78,7 @@ function AppContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
 
-  const { metrics, setActiveGoalId, resetAllData } = useFinance();
+  const { metrics, setActiveGoalId, resetAllData, cloudSyncStatus } = useFinance();
   const { user } = useAuth();
   const { isPro, openProModal } = useSubscription();
   const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | null>(null);
@@ -87,6 +89,8 @@ function AppContent() {
     visualEffects,
     formatMoney,
   } = useSettings();
+
+  const isLight = theme === 'pro_light';
 
   const handleResetData = () => {
     const ok = window.confirm(
@@ -137,105 +141,114 @@ function AppContent() {
       <TopAdBanner />
 
       {/* Main Glass Navbar */}
-      <header className="sticky top-0 z-40 bg-[#060b19]/85 backdrop-blur-2xl border-b border-white/10 shadow-2xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          {/* Brand Logo */}
+      <header className={`sticky top-0 z-40 backdrop-blur-2xl border-b transition-colors ${
+        isLight
+          ? 'bg-white/95 border-slate-200/90 shadow-sm text-slate-900'
+          : 'bg-[#060b19]/90 border-white/10 shadow-2xl text-white'
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-4">
+          {/* Brand Logo - High-End Fintech Identity */}
           <div
             onClick={() => setActiveTab('overview')}
-            className="flex items-center gap-3 cursor-pointer select-none group"
+            className="flex items-center gap-3 cursor-pointer select-none group shrink-0"
           >
             <div className="relative">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-400 via-teal-400 to-indigo-600 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-cyan-500/30 group-hover:scale-105 group-hover:shadow-cyan-400/50 transition-all">
-                <Gamepad2 className="w-5 h-5 text-slate-950" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black transition-all ${
+                isLight
+                  ? 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md shadow-emerald-600/20 group-hover:scale-105'
+                  : 'bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 shadow-lg shadow-emerald-500/30 group-hover:scale-105 group-hover:shadow-emerald-400/50'
+              }`}>
+                <TrendingUp className="w-5 h-5 stroke-[2.5]" />
               </div>
-              <div className="absolute -inset-1 rounded-2xl bg-cyan-400/20 blur-sm -z-10 group-hover:bg-cyan-400/40 transition-colors" />
+              {!isLight && (
+                <div className="absolute -inset-1 rounded-2xl bg-cyan-400/20 blur-sm -z-10 group-hover:bg-cyan-400/40 transition-colors" />
+              )}
             </div>
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black text-white text-base tracking-tight leading-none holographic-text brand-title">
+                <span className={`font-black text-base sm:text-lg tracking-tight leading-none ${
+                  isLight ? 'text-slate-900 font-sans' : 'text-white holographic-text brand-title'
+                }`}>
                   Minhas Finanças
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[10px] font-semibold tracking-wide brand-pill">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide border ${
+                  isLight
+                    ? 'bg-slate-100 border-slate-300 text-slate-700'
+                    : 'bg-amber-400/15 border-amber-400/40 text-amber-300 brand-pill'
+                }`}>
                   Jornada da Meta
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 leading-none mt-1 brand-subtitle">
+              <p className={`text-[11px] leading-none mt-1 ${
+                isLight ? 'text-slate-500 font-medium' : 'text-slate-400 brand-subtitle'
+              }`}>
                 Controle Financeiro Pessoal & Investimentos
               </p>
             </div>
           </div>
 
-          {/* Navigation Tabs (Desktop & Scrollable Mobile) */}
-          <nav className="hidden lg:flex items-center gap-1.5 p-1 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+          {/* Navigation Tabs (Desktop Centered) */}
+          <nav className={`hidden lg:flex items-center gap-1 p-1 rounded-2xl border backdrop-blur-md ${
+            isLight
+              ? 'bg-slate-100/80 border-slate-200/90'
+              : 'bg-white/[0.03] border-white/10'
+          }`}>
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const isAI = tab.id === 'ai';
 
               if (tab.highlight) {
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 relative overflow-hidden group ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 relative ${
                       isActive
-                        ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 shadow-xl shadow-amber-500/30 scale-105'
-                        : 'text-amber-400 hover:bg-amber-400/15 border border-amber-400/30'
+                        ? isLight
+                          ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                          : 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/25'
+                        : isLight
+                        ? 'text-amber-800 hover:bg-amber-100/80'
+                        : 'text-amber-300 hover:bg-amber-400/15'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{tab.label}</span>
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
                   </button>
                 );
               }
-
-              const isAI = tab.id === 'ai';
-              const isGoogle = tab.isGoogle;
-
-              const label = isGoogle && user ? (user.displayName?.split(' ')[0] || 'Google') : tab.label;
 
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${
                     isActive
-                      ? isAI
+                      ? isLight
+                        ? 'bg-white text-slate-900 font-bold shadow-sm border border-slate-200'
+                        : isAI
                         ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg shadow-cyan-500/25 border border-cyan-300'
-                        : isGoogle
-                        ? 'bg-white text-slate-900 font-bold shadow-lg shadow-white/20 border border-slate-300'
                         : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-md shadow-cyan-500/10'
+                      : isLight
+                      ? 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                       : isAI
                       ? 'text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 font-bold'
-                      : isGoogle
-                      ? user
-                        ? 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20'
-                        : 'text-slate-300 bg-white/5 border border-white/10 hover:bg-white/10'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  {isGoogle && user?.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt="Avatar"
-                      referrerPolicy="no-referrer"
-                      className="w-4 h-4 rounded-full border border-cyan-400 object-cover"
-                    />
-                  ) : (
-                    <Icon className="w-3.5 h-3.5" />
-                  )}
-                  <span>{label}</span>
-                  {isGoogle && user && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-400" />
-                  )}
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
                   {tab.badge && (
-                    <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded ${
+                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded ${
                       tab.badge === 'PRO'
-                        ? 'bg-gradient-to-r from-amber-400 to-amber-300 text-slate-950 font-black shadow-sm'
-                        : isActive && isAI
-                        ? 'bg-slate-950 text-cyan-300'
-                        : 'bg-cyan-400/30 text-cyan-200 border border-cyan-300/40'
+                        ? isLight
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-gradient-to-r from-amber-400 to-amber-300 text-slate-950 font-black'
+                        : isLight
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-cyan-400/30 text-cyan-200'
                     }`}>
                       {tab.badge}
                     </span>
@@ -245,62 +258,57 @@ function AppContent() {
             })}
           </nav>
 
-          {/* Right Header: Consolidated Balance HUD & Mobile Menu */}
+          {/* Right Header: Cloud Status, Balance HUD, Settings, Google Profile */}
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* PRO Subscription Button */}
-            <button
-              type="button"
-              onClick={openProModal}
-              className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all shadow-sm ${
-                isPro
-                  ? 'bg-gradient-to-r from-amber-500/20 to-purple-500/20 border-amber-400/50 text-amber-300 shadow-amber-500/10 hover:border-amber-300'
-                  : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-105 active:scale-95'
-              }`}
-              title={isPro ? 'Plano PRO Ativo - Ver benefícios' : 'Conhecer Plano PRO'}
-            >
-              <Crown className={`w-3.5 h-3.5 ${isPro ? 'text-amber-400' : 'text-slate-950'}`} />
-              <span className="font-mono">{isPro ? 'PRO' : 'SEJA PRO'}</span>
-            </button>
+            {/* Cloud Sync Status Indicator */}
+            {user ? (
+              <div
+                className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
+                  isLight
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+                }`}
+                title={`Sincronização em nuvem Firestore ativa para ${user.email}. Seus dados estão permanentemente salvos.`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="font-medium text-[11px]">Nuvem Ativa</span>
+              </div>
+            ) : (
+              <div
+                className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
+                  isLight
+                    ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                    : 'bg-white/5 text-slate-400 border border-white/10'
+                }`}
+                title="Dados salvos no seu dispositivo com backup duplo redundante. Faça login com Google para sincronizar na nuvem."
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-medium text-[11px]">Salvo Local</span>
+              </div>
+            )}
 
-            <PWAInstallButton />
-
-            {/* Quick Google Account Shortcut in Header */}
-            <button
-              onClick={() => setActiveTab('google')}
-              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${
-                activeTab === 'google'
-                  ? 'bg-white text-slate-900 border-white shadow-md'
-                  : user
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
-                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-              }`}
-              title={user ? `Logado como ${user.displayName || user.email}` : 'Entrar com o Google'}
-            >
-              {user?.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt="Avatar"
-                  referrerPolicy="no-referrer"
-                  className="w-5 h-5 rounded-full border border-cyan-400 object-cover"
-                />
-              ) : (
-                <GoogleLogo className="w-4 h-4 shrink-0" />
-              )}
-              <span className="hidden md:inline">
-                {user ? user.displayName?.split(' ')[0] || 'Google' : 'Entrar'}
-              </span>
-              {user && (
-                <span className="hidden md:inline w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              )}
-            </button>
-
-            <div className="hidden sm:flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-cyan-950/20 border border-cyan-500/30 shadow-md shadow-cyan-500/10">
-              <div className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
+            {/* Total Balance HUD */}
+            <div className={`hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl border ${
+              isLight
+                ? 'bg-slate-100/90 border-slate-200 text-slate-900 shadow-sm'
+                : 'bg-cyan-950/20 border-cyan-500/30 text-white shadow-md shadow-cyan-500/10'
+            }`}>
+              <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                isLight ? 'bg-blue-100 text-blue-700' : 'bg-cyan-500/20 text-cyan-300'
+              }`}>
                 <Wallet className="w-3.5 h-3.5" />
               </div>
               <div className="text-right">
-                <div className="text-[9px] text-cyan-400/80 font-mono uppercase font-bold leading-none">Saldo Total</div>
-                <div className="text-xs font-black text-white font-mono leading-tight">{formatMoney(metrics.balance)}</div>
+                <div className={`text-[9px] font-mono uppercase font-bold leading-none ${
+                  isLight ? 'text-slate-500' : 'text-cyan-400/80'
+                }`}>
+                  Saldo Total
+                </div>
+                <div className={`text-xs font-black font-mono leading-tight ${
+                  isLight ? 'text-slate-900' : 'text-white'
+                }`}>
+                  {formatMoney(metrics.balance)}
+                </div>
               </div>
             </div>
 
@@ -309,12 +317,16 @@ function AppContent() {
               onClick={toggleHideValues}
               className={`p-2 rounded-xl border transition-all ${
                 hideValues
-                  ? 'bg-amber-500/20 border-amber-400/50 text-amber-300 shadow-md shadow-amber-500/20'
+                  ? isLight
+                    ? 'bg-amber-100 border-amber-300 text-amber-900'
+                    : 'bg-amber-500/20 border-amber-400/50 text-amber-300 shadow-md shadow-amber-500/20'
+                  : isLight
+                  ? 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                   : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
               }`}
               title={hideValues ? 'Mostrar valores' : 'Ocultar valores (Modo Privacidade)'}
             >
-              {hideValues ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4" />}
+              {hideValues ? <EyeOff className="w-4 h-4 text-amber-500" /> : <Eye className="w-4 h-4" />}
             </button>
 
             {/* Quick Settings Shortcut */}
@@ -322,18 +334,81 @@ function AppContent() {
               onClick={() => setActiveTab('settings')}
               className={`p-2 rounded-xl border transition-all ${
                 activeTab === 'settings'
-                  ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300 shadow-md shadow-cyan-500/20'
+                  ? isLight
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                    : 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300 shadow-md shadow-cyan-500/20'
+                  : isLight
+                  ? 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                   : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
               }`}
-              title="Abrir Configurações"
+              title="Abrir Configurações e Backups"
             >
               <Settings className="w-4 h-4" />
             </button>
 
+            {/* Quick Google Account Shortcut in Header */}
+            <button
+              onClick={() => setActiveTab('google')}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${
+                activeTab === 'google'
+                  ? isLight
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    : 'bg-white text-slate-900 border-white shadow-md'
+                  : user
+                  ? isLight
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                  : isLight
+                  ? 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+              }`}
+              title={user ? `Conta conectada: ${user.displayName || user.email}` : 'Entrar com o Google'}
+            >
+              {user?.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt="Avatar"
+                  referrerPolicy="no-referrer"
+                  className="w-5 h-5 rounded-full border border-emerald-400 object-cover"
+                />
+              ) : (
+                <GoogleLogo className="w-4 h-4 shrink-0" />
+              )}
+              <span className="hidden md:inline">
+                {user ? user.displayName?.split(' ')[0] || 'Conta' : 'Entrar'}
+              </span>
+              {user && (
+                <span className="hidden md:inline w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              )}
+            </button>
+
+            {/* PRO Subscription Button */}
+            <button
+              type="button"
+              onClick={openProModal}
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all shadow-sm ${
+                isPro
+                  ? isLight
+                    ? 'bg-amber-100 border-amber-300 text-amber-900 hover:bg-amber-200'
+                    : 'bg-gradient-to-r from-amber-500/20 to-purple-500/20 border-amber-400/50 text-amber-300 hover:border-amber-300'
+                  : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 hover:scale-105 active:scale-95'
+              }`}
+              title={isPro ? 'Plano PRO Ativo - Ver benefícios' : 'Conhecer Plano PRO'}
+            >
+              <Crown className={`w-3.5 h-3.5 ${isPro ? (isLight ? 'text-amber-800' : 'text-amber-400') : 'text-slate-950'}`} />
+              <span className="font-mono">{isPro ? 'PRO' : 'PRO'}</span>
+            </button>
+
+            <PWAInstallButton />
+
             {/* Mobile/Tablet Hamburger */}
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white"
+              className={`lg:hidden p-2 rounded-xl border ${
+                isLight
+                  ? 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:text-white'
+              }`}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -341,13 +416,15 @@ function AppContent() {
         </div>
 
         {/* Horizontal Quick-Scroll Sub-bar for Mobile & Tablets */}
-        <div className="lg:hidden px-3 py-2 border-t border-white/5 bg-slate-950/70 overflow-x-auto no-scrollbar flex items-center gap-2">
+        <div className={`lg:hidden px-3 py-2 border-t overflow-x-auto no-scrollbar flex items-center gap-2 ${
+          isLight
+            ? 'bg-white border-slate-200 shadow-sm'
+            : 'bg-slate-950/80 border-white/5'
+        }`}>
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             const isAI = tab.id === 'ai';
-            const isGoogle = tab.isGoogle;
-            const label = isGoogle && user ? (user.displayName?.split(' ')[0] || 'Google') : tab.label;
 
             return (
               <button
@@ -355,41 +432,27 @@ function AppContent() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 shrink-0 transition-all ${
                   isActive
-                    ? isAI
-                      ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-md shadow-cyan-500/25'
+                    ? isLight
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : isAI
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black'
                       : tab.highlight
                       ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black'
-                      : isGoogle
-                      ? 'bg-white text-slate-900 font-bold'
                       : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
+                    : isLight
+                    ? 'text-slate-600 bg-slate-100 hover:bg-slate-200'
                     : isAI
                     ? 'text-cyan-300 bg-cyan-500/10 border border-cyan-500/40'
-                    : isGoogle
-                    ? user
-                      ? 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/30'
-                      : 'text-slate-300 bg-white/5'
                     : 'text-slate-400 bg-white/5 hover:text-white'
                 }`}
               >
-                {isGoogle && user?.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt="Avatar"
-                    referrerPolicy="no-referrer"
-                    className="w-3.5 h-3.5 rounded-full object-cover"
-                  />
-                ) : (
-                  <Icon className="w-3.5 h-3.5" />
-                )}
-                <span>{label}</span>
-                {isGoogle && user && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                )}
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
                 {tab.badge && (
                   <span className={`text-[8px] font-mono font-black px-1 py-0.2 rounded ${
                     tab.badge === 'PRO'
-                      ? 'bg-amber-400 text-slate-950 font-black'
-                      : 'bg-cyan-400/30 text-cyan-200'
+                      ? isLight ? 'bg-amber-100 text-amber-900' : 'bg-amber-400 text-slate-950'
+                      : isLight ? 'bg-blue-100 text-blue-800' : 'bg-cyan-400/30 text-cyan-200'
                   }`}>
                     {tab.badge}
                   </span>
@@ -401,12 +464,14 @@ function AppContent() {
 
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-cyan-500/20 bg-slate-950/95 backdrop-blur-2xl p-3 space-y-1.5">
+          <div className={`lg:hidden border-t p-3 space-y-1.5 ${
+            isLight
+              ? 'bg-white border-slate-200 shadow-xl'
+              : 'bg-slate-950/95 border-cyan-500/20 backdrop-blur-2xl'
+          }`}>
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-              const isAI = tab.id === 'ai';
-              const isGoogle = tab.isGoogle;
 
               return (
                 <button
@@ -417,53 +482,53 @@ function AppContent() {
                   }}
                   className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
                     isActive
-                      ? isAI
-                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg shadow-cyan-500/20'
-                        : tab.highlight
-                        ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/20'
-                        : isGoogle
-                        ? 'bg-white text-slate-900 font-bold'
+                      ? isLight
+                        ? 'bg-blue-600 text-white font-bold'
                         : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                      : isAI
-                      ? 'text-cyan-300 bg-cyan-500/10 border border-cyan-500/30'
-                      : isGoogle
-                      ? user
-                        ? 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/30'
-                        : 'text-slate-300 bg-white/5'
+                      : isLight
+                      ? 'text-slate-700 hover:bg-slate-100'
                       : 'text-slate-300 hover:bg-white/5'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    {isGoogle && user?.photoURL ? (
-                      <img
-                        src={user.photoURL}
-                        alt="Avatar"
-                        referrerPolicy="no-referrer"
-                        className="w-4 h-4 rounded-full object-cover"
-                      />
-                    ) : (
-                      <Icon className="w-4 h-4" />
-                    )}
-                    <span>{isGoogle && user ? `Google (${user.displayName || user.email})` : tab.label}</span>
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
                   </div>
-                  {isAI && (
-                    <span className="text-[10px] font-black uppercase text-cyan-950 bg-cyan-300 px-2 py-0.5 rounded-full">
-                      INTELIGÊNCIA ARTIFICIAL
-                    </span>
-                  )}
-                  {tab.highlight && (
-                    <span className="text-[10px] font-black uppercase text-amber-950 bg-amber-300 px-2 py-0.5 rounded-full">
-                      JOGO ATIVO
-                    </span>
-                  )}
-                  {isGoogle && user && (
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                      CONECTADO
+                  {tab.badge && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">
+                      {tab.badge}
                     </span>
                   )}
                 </button>
               );
             })}
+
+            <div className={`border-t my-2 pt-2 ${isLight ? 'border-slate-200' : 'border-white/10'}`}>
+              <button
+                onClick={() => {
+                  setActiveTab('settings');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 ${
+                  isLight ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 hover:bg-white/5'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Configurações & Backups</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('google');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 ${
+                  isLight ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300 hover:bg-white/5'
+                }`}
+              >
+                <GoogleLogo className="w-4 h-4" />
+                <span>{user ? `Conta: ${user.displayName || user.email}` : 'Entrar com o Google'}</span>
+              </button>
+            </div>
           </div>
         )}
       </header>
