@@ -51,7 +51,8 @@ export default function OverviewScreen({
     activeGoalId,
     goals,
   } = useFinance();
-  const { formatMoney } = useSettings();
+  const { theme, formatMoney } = useSettings();
+  const isLight = theme === 'pro_light';
 
   const activeGoal = savingGoals.find((g) => g.id === activeGoalId) || savingGoals[0];
   const goalPercent = activeGoal
@@ -128,22 +129,34 @@ export default function OverviewScreen({
       )}
 
       {/* Top Command Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-cyan-500/15">
+      <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b ${
+        isLight ? 'border-slate-200' : 'border-cyan-500/15'
+      }`}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 dark:bg-cyan-500/10 dark:text-cyan-400 dark:border dark:border-cyan-400/30 flex items-center justify-center shadow-sm">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
+            isLight
+              ? 'bg-blue-50 text-blue-600 border border-blue-100'
+              : 'bg-cyan-500/15 text-cyan-400 border border-cyan-400/30 shadow-cyan-500/10'
+          }`}>
             <Activity className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              <h2 className={`text-xl sm:text-2xl font-black tracking-tight ${
+                isLight ? 'text-slate-900' : 'text-white'
+              }`}>
                 Visão Geral Financeira
               </h2>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-400/30 dark:text-emerald-300 text-[10px] font-bold tracking-wide flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide flex items-center gap-1 border ${
+                isLight
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
                 Atualizado
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className={`text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
               Controle integrado de receitas, despesas, saldos bancários e metas
             </p>
           </div>
@@ -153,28 +166,40 @@ export default function OverviewScreen({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => onNavigateToTab('ai')}
-            className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 dark:bg-gradient-to-r dark:from-cyan-500/25 dark:to-blue-600/25 dark:hover:from-cyan-500/35 dark:border-cyan-400/60 dark:text-cyan-200 text-xs font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95"
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95 border ${
+              isLight
+                ? 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200'
+                : 'bg-gradient-to-r from-cyan-500/25 to-blue-600/25 hover:from-cyan-500/35 border-cyan-400/50 text-cyan-200 shadow-cyan-500/10'
+            }`}
           >
-            <Bot className="w-4 h-4 text-blue-600 dark:text-cyan-300" />
+            <Bot className={`w-4 h-4 ${isLight ? 'text-blue-600' : 'text-cyan-300'}`} />
             <span>Dante (IA)</span>
           </button>
           <button
             onClick={() => onOpenNewTransaction('income')}
-            className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 border ${
+              isLight
+                ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-300 shadow-emerald-500/10'
+            }`}
           >
-            <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <ArrowUpRight className={`w-3.5 h-3.5 ${isLight ? 'text-emerald-600' : 'text-emerald-400'}`} />
             <span>+ Receita</span>
           </button>
           <button
             onClick={() => onOpenNewTransaction('expense')}
-            className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:border-rose-500/30 dark:text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 border ${
+              isLight
+                ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-800'
+                : 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-300 shadow-rose-500/10'
+            }`}
           >
-            <ArrowDownRight className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+            <ArrowDownRight className={`w-3.5 h-3.5 ${isLight ? 'text-rose-600' : 'text-rose-400'}`} />
             <span>- Despesa</span>
           </button>
           <button
             onClick={() => onNavigateToGame()}
-            className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+            className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition-all flex items-center gap-1.5 shadow-md active:scale-95"
           >
             <Compass className="w-4 h-4" />
             <span>Jornada da Meta</span>
@@ -190,18 +215,28 @@ export default function OverviewScreen({
         {/* Saldo Consolidado */}
         <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${
+              isLight ? 'text-slate-500' : 'text-slate-400'
+            }`}>
               Saldo em Contas
             </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 dark:bg-cyan-500/20 dark:border dark:border-cyan-400/30 dark:text-cyan-300 flex items-center justify-center shadow-sm">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+              isLight
+                ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30'
+            }`}>
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
+          <div className={`text-xl sm:text-2xl font-black tracking-tight font-mono ${
+            isLight ? 'text-slate-900' : 'text-white'
+          }`}>
             {formatBRL(metrics.balance)}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-cyan-400/80 mt-1 flex items-center gap-1 font-mono">
-            <Zap className="w-3 h-3 text-blue-500 dark:text-cyan-400" />
+          <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${
+            isLight ? 'text-slate-500' : 'text-cyan-400/80'
+          }`}>
+            <Zap className={`w-3 h-3 ${isLight ? 'text-blue-500' : 'text-cyan-400'}`} />
             <span>{bankAccounts.length} {bankAccounts.length === 1 ? 'instituição ativa' : 'instituições ativas'}</span>
           </div>
         </div>
@@ -209,17 +244,27 @@ export default function OverviewScreen({
         {/* Entradas do Mês */}
         <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400/90 uppercase tracking-wider">
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${
+              isLight ? 'text-emerald-700' : 'text-emerald-400/90'
+            }`}>
               Entradas do Mês
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:border dark:border-emerald-400/40 dark:text-emerald-300 flex items-center justify-center shadow-sm">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+              isLight
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+            }`}>
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight font-mono">
+          <div className={`text-xl sm:text-2xl font-black tracking-tight font-mono ${
+            isLight ? 'text-emerald-600' : 'text-emerald-400'
+          }`}>
             {formatBRL(metrics.monthIncome)}
           </div>
-          <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/70 mt-1 font-mono font-medium">
+          <div className={`text-[11px] mt-1 font-mono font-medium ${
+            isLight ? 'text-emerald-700/80' : 'text-emerald-400/70'
+          }`}>
             Receitas Confirmadas
           </div>
         </div>
@@ -227,17 +272,27 @@ export default function OverviewScreen({
         {/* Saídas do Mês */}
         <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-rose-700 dark:text-orange-400/90 uppercase tracking-wider">
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${
+              isLight ? 'text-rose-700' : 'text-orange-400/90'
+            }`}>
               Saídas do Mês
             </span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-700 dark:bg-orange-500/20 dark:border dark:border-orange-400/40 dark:text-orange-300 flex items-center justify-center shadow-sm">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
+              isLight
+                ? 'bg-rose-50 text-rose-700 border border-rose-100'
+                : 'bg-orange-500/20 text-orange-300 border border-orange-400/40'
+            }`}>
               <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-rose-600 dark:text-orange-400 tracking-tight font-mono">
+          <div className={`text-xl sm:text-2xl font-black tracking-tight font-mono ${
+            isLight ? 'text-rose-600' : 'text-orange-400'
+          }`}>
             {formatBRL(metrics.monthExpense)}
           </div>
-          <div className="text-[11px] text-rose-700/80 dark:text-orange-400/70 mt-1 font-mono font-medium">
+          <div className={`text-[11px] mt-1 font-mono font-medium ${
+            isLight ? 'text-rose-700/80' : 'text-orange-400/70'
+          }`}>
             Despesas do Período
           </div>
         </div>
@@ -245,24 +300,34 @@ export default function OverviewScreen({
         {/* Resultado Líquido */}
         <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${
+              isLight ? 'text-slate-500' : 'text-slate-400'
+            }`}>
               Resultado Líquido
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
               metrics.monthNet >= 0
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-cyan-500/20 dark:border dark:border-cyan-400/40 dark:text-cyan-300'
-                : 'bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:border dark:border-rose-400/40 dark:text-rose-300'
+                ? isLight
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                  : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
+                : isLight
+                  ? 'bg-rose-50 text-rose-700 border border-rose-100'
+                  : 'bg-rose-500/20 text-rose-300 border border-rose-400/40'
             }`}>
               {metrics.monthNet >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             </div>
           </div>
           <div className={`text-xl sm:text-2xl font-black tracking-tight font-mono ${
-            metrics.monthNet >= 0 ? 'text-emerald-600 dark:text-cyan-300' : 'text-rose-600 dark:text-rose-400'
+            metrics.monthNet >= 0
+              ? isLight ? 'text-emerald-600' : 'text-cyan-300'
+              : isLight ? 'text-rose-600' : 'text-rose-400'
           }`}>
             {formatBRL(metrics.monthNet)}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 font-mono">
-            <span>Taxa de Poupança: <strong className="text-amber-600 dark:text-amber-400 font-bold">{metrics.savingsRate.toFixed(0)}%</strong></span>
+          <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${
+            isLight ? 'text-slate-500' : 'text-slate-400'
+          }`}>
+            <span>Taxa de Poupança: <strong className={`font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>{metrics.savingsRate.toFixed(0)}%</strong></span>
           </div>
         </div>
       </div>
@@ -276,15 +341,25 @@ export default function OverviewScreen({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 border ${
+                  isLight
+                    ? 'bg-amber-100 border-amber-300 text-amber-900'
+                    : 'bg-amber-400/15 border-amber-400/40 text-amber-300'
+                }`}>
                   <Compass className="w-3 h-3" /> Jornada da Meta Ativa
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Progresso em Tempo Real</span>
+                <span className={`text-xs font-medium ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                  Progresso em Tempo Real
+                </span>
               </div>
-              <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-1 group-hover:text-amber-700 dark:group-hover:text-amber-200 transition-colors">
+              <h3 className={`text-lg sm:text-xl font-black mt-1 transition-colors ${
+                isLight
+                  ? 'text-slate-900 group-hover:text-amber-800'
+                  : 'text-white group-hover:text-amber-200'
+              }`}>
                 {activeGoal ? activeGoal.name : 'Selecione uma Meta para Acompanhar'}
               </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+              <p className={`text-xs mt-0.5 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
                 Economize para avançar degrau a degrau rumo ao seu objetivo patrimonial
               </p>
             </div>
@@ -293,18 +368,28 @@ export default function OverviewScreen({
           {/* Progress gauge and action button */}
           <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
             {activeGoal && (
-              <div className="bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-amber-400/30 rounded-2xl p-3 min-w-[200px] shadow-sm">
+              <div className={`rounded-2xl p-3 min-w-[200px] shadow-sm border ${
+                isLight
+                  ? 'bg-white/95 border-amber-200'
+                  : 'bg-slate-900/80 border-amber-400/30'
+              }`}>
                 <div className="flex justify-between text-xs font-mono mb-1">
-                  <span className="text-slate-500 dark:text-slate-400">Progresso</span>
-                  <span className="text-amber-700 dark:text-amber-400 font-bold">{goalPercent.toFixed(1)}%</span>
+                  <span className={isLight ? 'text-slate-600' : 'text-slate-400'}>Progresso</span>
+                  <span className={`font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>
+                    {goalPercent.toFixed(1)}%
+                  </span>
                 </div>
-                <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden p-0.5">
+                <div className={`w-full h-2.5 rounded-full overflow-hidden p-0.5 ${
+                  isLight ? 'bg-amber-100' : 'bg-slate-800'
+                }`}>
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-700"
                     style={{ width: `${goalPercent}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1.5">
+                <div className={`flex justify-between text-[10px] font-mono mt-1.5 ${
+                  isLight ? 'text-slate-600' : 'text-slate-400'
+                }`}>
                   <span>{formatBRL(activeGoal.currentAmount)}</span>
                   <span>Alvo: {formatBRL(activeGoal.targetAmount)}</span>
                 </div>
@@ -427,8 +512,10 @@ export default function OverviewScreen({
       <div className="cyber-card rounded-3xl p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">Lançamentos Recentes</h3>
+            <Cpu className={`w-4 h-4 ${isLight ? 'text-blue-600' : 'text-cyan-400'}`} />
+            <h3 className={`font-bold text-base ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              Lançamentos Recentes
+            </h3>
           </div>
 
           <button

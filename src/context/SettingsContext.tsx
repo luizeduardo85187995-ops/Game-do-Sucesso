@@ -96,6 +96,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     root.classList.remove('theme-cyber_dark', 'theme-pro_light', 'theme-midnight', 'theme-emerald');
     root.classList.add(`theme-${settings.theme}`);
+    if (settings.theme === 'pro_light') {
+      root.classList.remove('dark');
+      root.classList.add('light');
+    } else {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    }
     
     // Set theme-color meta tag for mobile status bar
     const themeColors: Record<AppTheme, string> = {
