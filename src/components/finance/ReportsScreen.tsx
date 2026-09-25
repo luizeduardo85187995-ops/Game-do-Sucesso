@@ -91,15 +91,11 @@ export default function ReportsScreen() {
 
   // High precision print/PDF generation
   const handleExportPDF = () => {
-    if (!isPro) {
-      openProModal();
-      return;
-    }
     setIsExporting(true);
     setTimeout(() => {
       window.print();
       setIsExporting(false);
-    }, 300);
+    }, 250);
   };
 
   // CSV export
@@ -559,133 +555,193 @@ export default function ReportsScreen() {
       {/* ========================================================
           2. DEDICATED AUDITED CORPORATE REPORT (PRINT & PDF ONLY)
          ======================================================== */}
-      <div className="hidden print:block w-full text-slate-900 bg-white space-y-6">
+      <div className="hidden print:block w-full text-slate-900 bg-white space-y-6 text-xs font-sans">
         {/* Executive Header */}
         <div className="border-b-2 border-slate-900 pb-4">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-6">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black tracking-widest text-slate-500 uppercase font-mono">
-                  MINHAS FINANÇAS • JORNADA DA META
+                <span className="text-[11px] font-black tracking-widest text-slate-800 uppercase font-mono">
+                  MINHAS FINANÇAS • CONTROLE PATRIMONIAL
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-slate-700 font-bold font-mono">
-                  DOCUMENTO OFICIAL
+                <span className="text-[9px] px-2 py-0.5 rounded bg-slate-100 border border-slate-400 text-slate-800 font-bold font-mono">
+                  DEMONSTRATIVO CONSOLIDADO
                 </span>
               </div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1 uppercase">
-                Relatório Financeiro Consolidado
+              <h1 className="text-2xl font-black text-slate-950 tracking-tight mt-1.5 uppercase">
+                Relatório Financeiro & de Fluxo de Caixa
               </h1>
               <p className="text-xs text-slate-600 mt-0.5">
-                Demonstrativo de Fluxo de Caixa, Despesas, Investimentos e Conquistas
+                Demonstrativo oficial de receitas, despesas, alocação por categorias, bancos e investimentos
               </p>
             </div>
 
-            <div className="text-right text-xs font-mono border-l-2 border-slate-200 pl-4 space-y-0.5">
-              <div className="text-[10px] text-slate-500 uppercase font-bold">Emissão</div>
-              <div className="font-bold text-slate-900">
+            <div className="text-right text-xs font-mono border-l-2 border-slate-300 pl-4 space-y-0.5 shrink-0">
+              <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Data de Emissão</div>
+              <div className="font-bold text-slate-950">
                 {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </div>
-              <div className="text-[11px] text-slate-600">
+              <div className="text-[11px] text-slate-700 font-medium">
                 {user?.displayName || user?.email || 'Titular da Conta'}
+              </div>
+              <div className="text-[9px] text-slate-400">
+                Doc Ref: MF-{Date.now().toString(36).toUpperCase()}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Executive KPI Summary Grid */}
+        {/* 1. Indicadores Principais de Desempenho */}
         <div className="print-avoid-break">
-          <h3 className="text-xs font-bold text-slate-500 uppercase font-mono tracking-wider mb-2">
-            1. Indicadores Principais de Desempenho
-          </h3>
+          <h2 className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+            <span>1.</span> Indicadores Principais de Desempenho (Consolidado)
+          </h2>
           <div className="grid grid-cols-4 gap-3">
-            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/60">
-              <span className="text-[10px] uppercase font-mono font-bold text-slate-500 block">
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50">
+              <span className="text-[9px] uppercase font-mono font-bold text-slate-600 block">
                 Total de Receitas
               </span>
-              <div className="text-lg font-black font-mono text-emerald-700 mt-1">
+              <div className="text-lg font-black font-mono text-emerald-800 mt-1">
                 {formatBRL(totalIncome)}
               </div>
               <span className="text-[9px] text-slate-500 font-mono mt-0.5 block">
-                {sortedIncome.length} categorias
+                {sortedIncome.length} categorias cadastradas
               </span>
             </div>
 
-            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/60">
-              <span className="text-[10px] uppercase font-mono font-bold text-slate-500 block">
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50">
+              <span className="text-[9px] uppercase font-mono font-bold text-slate-600 block">
                 Total de Despesas
               </span>
-              <div className="text-lg font-black font-mono text-rose-700 mt-1">
+              <div className="text-lg font-black font-mono text-rose-800 mt-1">
                 {formatBRL(totalExpense)}
               </div>
               <span className="text-[9px] text-slate-500 font-mono mt-0.5 block">
-                {sortedExpenses.length} categorias
+                {sortedExpenses.length} categorias cadastradas
               </span>
             </div>
 
-            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/60">
-              <span className="text-[10px] uppercase font-mono font-bold text-slate-500 block">
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50">
+              <span className="text-[9px] uppercase font-mono font-bold text-slate-600 block">
                 Resultado Líquido
               </span>
-              <div className={`text-lg font-black font-mono mt-1 ${totalIncome - totalExpense >= 0 ? 'text-blue-700' : 'text-rose-700'}`}>
+              <div className={`text-lg font-black font-mono mt-1 ${totalIncome - totalExpense >= 0 ? 'text-blue-800' : 'text-rose-800'}`}>
                 {formatBRL(totalIncome - totalExpense)}
               </div>
-              <span className="text-[9px] text-slate-500 font-mono mt-0.5 block">
+              <span className="text-[9px] text-slate-600 font-mono mt-0.5 block font-bold">
                 {totalIncome - totalExpense >= 0 ? 'Superávit no período' : 'Déficit no período'}
               </span>
             </div>
 
-            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50/60">
-              <span className="text-[10px] uppercase font-mono font-bold text-slate-500 block">
-                Taxa de Poupança
+            <div className="border border-slate-300 rounded-lg p-3 bg-slate-50">
+              <span className="text-[9px] uppercase font-mono font-bold text-slate-600 block">
+                Saldo Geral em Contas
               </span>
-              <div className="text-lg font-black font-mono text-amber-700 mt-1">
-                {metrics.savingsRate.toFixed(1)}%
+              <div className="text-lg font-black font-mono text-slate-900 mt-1">
+                {formatBRL(metrics.balance)}
               </div>
               <span className="text-[9px] text-slate-500 font-mono mt-0.5 block">
-                Renda convertida em saldo
+                Poupança: {metrics.savingsRate.toFixed(1)}%
               </span>
             </div>
           </div>
         </div>
 
-        {/* Section 2: Detalhamento de Despesas por Categoria */}
+        {/* 2. Saldos por Conta Bancária & Carteira */}
         <div className="print-avoid-break">
-          <h3 className="text-xs font-bold text-slate-500 uppercase font-mono tracking-wider mb-2">
-            2. Detalhamento de Despesas por Categoria
-          </h3>
+          <h2 className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+            <span>2.</span> Saldos por Conta Bancária e Carteira
+          </h2>
           <table className="w-full text-left text-xs border border-slate-300 border-collapse">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-300 text-slate-700 font-mono text-[11px]">
+              <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-mono text-[11px]">
+                <th className="py-2 px-3">Instituição / Conta</th>
+                <th className="py-2 px-3">Tipo de Conta</th>
+                <th className="py-2 px-3 text-right">Saldo Atual (R$)</th>
+                <th className="py-2 px-3 text-right">Participação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {bankAccounts.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-3 text-center text-slate-500">
+                    Nenhuma conta bancária registrada.
+                  </td>
+                </tr>
+              ) : (
+                bankAccounts.map((b) => {
+                  const pct = metrics.bankBalance > 0 ? (b.balance / metrics.bankBalance) * 100 : 0;
+                  return (
+                    <tr key={b.id}>
+                      <td className="py-2 px-3 font-bold text-slate-900">
+                        {b.bankName} {b.nickname ? `(${b.nickname})` : ''}
+                      </td>
+                      <td className="py-2 px-3 text-slate-600 font-mono text-[11px]">
+                        {b.accountType === 'checking' ? 'Conta Corrente' : b.accountType === 'savings' ? 'Poupança / Reserva' : b.accountType === 'credit-card' ? 'Cartão de Crédito' : 'Carteira Digital'}
+                      </td>
+                      <td className={`py-2 px-3 text-right font-mono font-bold ${b.balance >= 0 ? 'text-slate-900' : 'text-rose-700'}`}>
+                        {formatBRL(b.balance)}
+                      </td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-600">
+                        {pct > 0 ? `${pct.toFixed(1)}%` : '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100 font-bold border-t-2 border-slate-300 font-mono">
+                <td colSpan={2} className="py-2 px-3 text-slate-900">
+                  Total Consolidado em Bancos
+                </td>
+                <td className="py-2 px-3 text-right text-slate-950 font-black">
+                  {formatBRL(metrics.bankBalance)}
+                </td>
+                <td className="py-2 px-3 text-right text-slate-600">100%</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* 3. Detalhamento de Despesas por Categoria */}
+        <div className="print-avoid-break">
+          <h2 className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+            <span>3.</span> Detalhamento de Despesas por Categoria
+          </h2>
+          <table className="w-full text-left text-xs border border-slate-300 border-collapse">
+            <thead>
+              <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-mono text-[11px]">
                 <th className="py-2 px-3">Categoria</th>
                 <th className="py-2 px-3 text-right">Valor Total (R$)</th>
                 <th className="py-2 px-3 text-right">Participação (%)</th>
-                <th className="py-2 px-3 w-40">Proporção Visual</th>
+                <th className="py-2 px-3 w-48">Proporção Visual</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {sortedExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-4 text-center text-slate-500">
+                  <td colSpan={4} className="py-3 text-center text-slate-500">
                     Nenhuma despesa registrada.
                   </td>
                 </tr>
               ) : (
                 sortedExpenses.map((item, idx) => (
-                  <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                    <td className="py-2 px-3 font-bold text-slate-800 flex items-center gap-1.5">
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                    <td className="py-2 px-3 font-bold text-slate-900 flex items-center gap-1.5">
                       <span>{CATEGORY_COLORS[item.category]?.emoji || '🏷️'}</span>
                       <span>{item.category}</span>
                     </td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                    <td className="py-2 px-3 text-right font-mono font-bold text-slate-950">
                       {formatBRL(item.amount)}
                     </td>
                     <td className="py-2 px-3 text-right font-mono text-slate-700">
                       {item.percent.toFixed(1)}%
                     </td>
                     <td className="py-2 px-3">
-                      <div className="w-full h-2 rounded bg-slate-200 overflow-hidden">
+                      <div className="w-full h-2.5 rounded bg-slate-200 overflow-hidden border border-slate-300">
                         <div
-                          className="h-full bg-slate-700 rounded"
+                          className="h-full bg-slate-800 rounded-sm"
                           style={{ width: `${Math.min(item.percent, 100)}%` }}
                         />
                       </div>
@@ -694,17 +750,25 @@ export default function ReportsScreen() {
                 ))
               )}
             </tbody>
+            <tfoot>
+              <tr className="bg-slate-100 font-bold border-t-2 border-slate-300 font-mono">
+                <td className="py-2 px-3 text-slate-900">Total Geral de Despesas</td>
+                <td className="py-2 px-3 text-right text-rose-800 font-black">{formatBRL(totalExpense)}</td>
+                <td className="py-2 px-3 text-right">100%</td>
+                <td />
+              </tr>
+            </tfoot>
           </table>
         </div>
 
-        {/* Section 3: Histórico Mensal */}
+        {/* 4. Histórico Mensal */}
         <div className="print-avoid-break">
-          <h3 className="text-xs font-bold text-slate-500 uppercase font-mono tracking-wider mb-2">
-            3. Histórico e Evolução Mensal do Fluxo de Caixa
-          </h3>
+          <h2 className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+            <span>4.</span> Evolução Mensal do Fluxo de Caixa
+          </h2>
           <table className="w-full text-left text-xs border border-slate-300 border-collapse">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-300 text-slate-700 font-mono text-[11px]">
+              <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-mono text-[11px]">
                 <th className="py-2 px-3">Mês / Período</th>
                 <th className="py-2 px-3 text-right">Receitas (R$)</th>
                 <th className="py-2 px-3 text-right">Despesas (R$)</th>
@@ -715,7 +779,7 @@ export default function ReportsScreen() {
             <tbody className="divide-y divide-slate-200">
               {monthlyTimeline.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-slate-500">
+                  <td colSpan={5} className="py-3 text-center text-slate-500">
                     Nenhum histórico mensal registrado.
                   </td>
                 </tr>
@@ -723,21 +787,21 @@ export default function ReportsScreen() {
                 monthlyTimeline.map((item, idx) => {
                   const net = item.income - item.expense;
                   return (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                      <td className="py-2 px-3 font-bold font-mono text-slate-800">
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                      <td className="py-2 px-3 font-bold font-mono text-slate-900">
                         {item.label}
                       </td>
-                      <td className="py-2 px-3 text-right font-mono text-emerald-700 font-bold">
+                      <td className="py-2 px-3 text-right font-mono text-emerald-800 font-bold">
                         {formatBRL(item.income)}
                       </td>
-                      <td className="py-2 px-3 text-right font-mono text-rose-700 font-bold">
+                      <td className="py-2 px-3 text-right font-mono text-rose-800 font-bold">
                         {formatBRL(item.expense)}
                       </td>
-                      <td className={`py-2 px-3 text-right font-mono font-black ${net >= 0 ? 'text-blue-700' : 'text-rose-700'}`}>
+                      <td className={`py-2 px-3 text-right font-mono font-black ${net >= 0 ? 'text-blue-900' : 'text-rose-800'}`}>
                         {formatBRL(net)}
                       </td>
                       <td className="py-2 px-3 text-center font-mono text-[10px]">
-                        <span className={`px-2 py-0.5 rounded font-bold ${net >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                        <span className={`px-2 py-0.5 rounded font-bold border ${net >= 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'}`}>
                           {net >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}
                         </span>
                       </td>
@@ -749,24 +813,77 @@ export default function ReportsScreen() {
           </table>
         </div>
 
-        {/* Section 4: Metas da Jornada & Alocação */}
+        {/* 5. Carteira de Investimentos (se houver) */}
+        {investments.length > 0 && (
+          <div className="print-avoid-break">
+            <h2 className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+              <span>5.</span> Carteira de Investimentos e Ativos
+            </h2>
+            <table className="w-full text-left text-xs border border-slate-300 border-collapse">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-mono text-[11px]">
+                  <th className="py-2 px-3">Código / Ativo</th>
+                  <th className="py-2 px-3">Classe</th>
+                  <th className="py-2 px-3 text-right">Qtd</th>
+                  <th className="py-2 px-3 text-right">Preço Médio</th>
+                  <th className="py-2 px-3 text-right">Total Aplicado (R$)</th>
+                  <th className="py-2 px-3 text-right">Renda Mensal Est.</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {investments.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="py-2 px-3 font-bold text-slate-900 font-mono">
+                      {inv.code} {inv.name ? `— ${inv.name}` : ''}
+                    </td>
+                    <td className="py-2 px-3 uppercase text-slate-600 font-mono text-[10px]">
+                      {inv.type}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-slate-700">
+                      {inv.quantity ?? 1}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-slate-700">
+                      {formatBRL(inv.averagePrice ?? inv.currentPrice ?? (inv.quantity ? inv.amount / inv.quantity : inv.amount))}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                      {formatBRL(inv.amount)}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-800 font-bold">
+                      {inv.monthlyYield ? `+${formatBRL((inv.amount * inv.monthlyYield) / 100)}` : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-100 font-bold border-t-2 border-slate-300 font-mono">
+                  <td colSpan={4} className="py-2 px-3 text-slate-900">Total Investido em Ativos</td>
+                  <td className="py-2 px-3 text-right text-slate-950 font-black">{formatBRL(metrics.investedTotal)}</td>
+                  <td className="py-2 px-3 text-right text-emerald-800 font-black">{formatBRL(metrics.estimatedPassiveIncome)}/mês</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+
+        {/* 6. Metas da Jornada de Economia */}
         <div className="print-avoid-break">
-          <h3 className="text-xs font-bold text-slate-500 uppercase font-mono tracking-wider mb-2">
-            4. Metas da Jornada de Economia
-          </h3>
+          <h2 className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+            <span>{investments.length > 0 ? '6.' : '5.'}</span> Metas da Jornada de Economia
+          </h2>
           <table className="w-full text-left text-xs border border-slate-300 border-collapse">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-300 text-slate-700 font-mono text-[11px]">
-                <th className="py-2 px-3">Meta / Conquista</th>
+              <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-mono text-[11px]">
+                <th className="py-2 px-3">Meta / Objetivo</th>
                 <th className="py-2 px-3 text-right">Alvo (R$)</th>
                 <th className="py-2 px-3 text-right">Poupado (R$)</th>
                 <th className="py-2 px-3 text-right">Progresso</th>
+                <th className="py-2 px-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {savingGoals.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-3 text-center text-slate-500">
+                  <td colSpan={5} className="py-3 text-center text-slate-500">
                     Nenhuma meta cadastrada no momento.
                   </td>
                 </tr>
@@ -774,19 +891,24 @@ export default function ReportsScreen() {
                 savingGoals.map((goal) => {
                   const pct = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
                   return (
-                    <tr key={goal.id} className="border-b border-slate-200">
-                      <td className="py-2 px-3 font-bold text-slate-800 flex items-center gap-1.5">
+                    <tr key={goal.id}>
+                      <td className="py-2 px-3 font-bold text-slate-900 flex items-center gap-1.5">
                         <span>{goal.emoji || '🎯'}</span>
                         <span>{goal.name}</span>
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-slate-700">
                         {formatBRL(goal.targetAmount)}
                       </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-amber-700">
+                      <td className="py-2 px-3 text-right font-mono font-bold text-amber-800">
                         {formatBRL(goal.currentAmount)}
                       </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-950">
                         {pct.toFixed(0)}%
+                      </td>
+                      <td className="py-2 px-3 text-center font-mono text-[10px]">
+                        <span className={`px-2 py-0.5 rounded font-bold border ${pct >= 100 ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-slate-50 text-slate-700 border-slate-300'}`}>
+                          {pct >= 100 ? 'CONCLUÍDO' : 'EM ANDAMENTO'}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -796,19 +918,19 @@ export default function ReportsScreen() {
           </table>
         </div>
 
-        {/* Section 5: Extrato Resumido das Últimas Transações */}
+        {/* 7. Extrato Detalhado dos Lançamentos (sem truncar textos!) */}
         <div className="print-avoid-break">
-          <h3 className="text-xs font-bold text-slate-500 uppercase font-mono tracking-wider mb-2">
-            5. Extrato Resumido dos Lançamentos Recentes ({Math.min(transactions.length, 15)} de {transactions.length})
-          </h3>
+          <h2 className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+            <span>{investments.length > 0 ? '7.' : '6.'}</span> Extrato dos Lançamentos Registrados ({Math.min(transactions.length, 50)} de {transactions.length})
+          </h2>
           <table className="w-full text-left text-xs border border-slate-300 border-collapse">
             <thead>
-              <tr className="bg-slate-100 border-b border-slate-300 text-slate-700 font-mono text-[10px]">
+              <tr className="bg-slate-100 border-b border-slate-300 text-slate-800 font-mono text-[10px]">
                 <th className="py-1.5 px-2">Data</th>
                 <th className="py-1.5 px-2">Tipo</th>
                 <th className="py-1.5 px-2">Categoria</th>
                 <th className="py-1.5 px-2">Descrição / Observação</th>
-                <th className="py-1.5 px-2">Conta / Origem</th>
+                <th className="py-1.5 px-2">Conta</th>
                 <th className="py-1.5 px-2 text-right">Valor (R$)</th>
               </tr>
             </thead>
@@ -820,28 +942,28 @@ export default function ReportsScreen() {
                   </td>
                 </tr>
               ) : (
-                transactions.slice(0, 15).map((t) => {
-                  const bank = bankAccounts.find((b) => b.id === t.bankAccountId)?.bankName || 'Carteira Principal';
+                transactions.slice(0, 50).map((t) => {
+                  const bank = bankAccounts.find((b) => b.id === t.bankAccountId)?.bankName || 'Geral';
                   return (
                     <tr key={t.id}>
                       <td className="py-1.5 px-2 font-mono text-slate-700 whitespace-nowrap">
                         {t.date ? formatDateBR(t.date) : '-'}
                       </td>
-                      <td className="py-1.5 px-2 font-mono text-[10px]">
-                        <span className={`px-1.5 py-0.5 rounded font-bold ${t.type === 'income' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                      <td className="py-1.5 px-2 font-mono text-[9px]">
+                        <span className={`px-1.5 py-0.5 rounded font-bold border ${t.type === 'income' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'}`}>
                           {t.type === 'income' ? 'ENTRADA' : 'SAÍDA'}
                         </span>
                       </td>
-                      <td className="py-1.5 px-2 font-bold text-slate-800">
+                      <td className="py-1.5 px-2 font-bold text-slate-900 whitespace-nowrap">
                         {t.category}
                       </td>
-                      <td className="py-1.5 px-2 text-slate-600 truncate max-w-[180px]">
+                      <td className="py-1.5 px-2 text-slate-800 break-words">
                         {t.note || '-'}
                       </td>
-                      <td className="py-1.5 px-2 text-slate-600">
+                      <td className="py-1.5 px-2 text-slate-600 whitespace-nowrap">
                         {bank}
                       </td>
-                      <td className={`py-1.5 px-2 text-right font-mono font-bold whitespace-nowrap ${t.type === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      <td className={`py-1.5 px-2 text-right font-mono font-bold whitespace-nowrap ${t.type === 'income' ? 'text-emerald-800' : 'text-rose-800'}`}>
                         {t.type === 'income' ? '+' : '-'}{formatBRL(t.amount)}
                       </td>
                     </tr>
@@ -852,13 +974,13 @@ export default function ReportsScreen() {
           </table>
         </div>
 
-        {/* Corporate Legal Footer */}
-        <div className="pt-6 border-t border-slate-300 text-center text-[10px] text-slate-500 font-mono space-y-1">
-          <p>
-            Relatório gerado automaticamente pelo aplicativo Minhas Finanças + Jornada da Meta para simples conferência e planejamento financeiro pessoal.
+        {/* Corporate Legal & Audited Footer */}
+        <div className="pt-6 border-t-2 border-slate-300 text-center text-[10px] text-slate-500 font-mono space-y-1 print-avoid-break">
+          <p className="font-semibold text-slate-700">
+            Documento emitido para simples conferência e planejamento financeiro pessoal.
           </p>
-          <p className="text-slate-400">
-            Ambiente seguro • {new Date().getFullYear()} © Minhas Finanças • Todos os direitos reservados
+          <p className="text-slate-500">
+            Minhas Finanças • Controle Financeiro Pessoal & Investimentos • Documento Gerado em {new Date().toLocaleDateString('pt-BR')}
           </p>
         </div>
       </div>

@@ -45,9 +45,11 @@ const SAMPLE_ADS: SampleAd[] = [
 
 export default function TopAdBanner() {
   const { isPro, openProModal } = useSubscription();
-  const { googleAdSenseClientId, googleAdSenseSlotId, affiliateCustomUrl } = useSettings();
+  const { googleAdSenseClientId, googleAdSenseSlotId, affiliateCustomUrl, theme } = useSettings();
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const adSenseRef = useRef<HTMLModElement | null>(null);
+
+  const isLight = theme === 'pro_light';
 
   // Rotate sample ads every 8 seconds for free users
   useEffect(() => {
@@ -73,14 +75,18 @@ export default function TopAdBanner() {
   // Se o usuário for assinante PRO, não exibe anúncio!
   if (isPro) {
     return (
-      <div className="bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-amber-500/10 border-b border-amber-500/20 px-3 py-1 flex items-center justify-between text-[11px] font-mono select-none">
-        <div className="flex items-center gap-2 text-amber-300">
-          <Crown className="w-3.5 h-3.5 text-amber-400" />
+      <div className={`border-b px-3 py-1 flex items-center justify-between text-[11px] font-mono select-none ${
+        isLight
+          ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+          : 'bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-amber-500/10 border-amber-500/20 text-amber-300'
+      }`}>
+        <div className="flex items-center gap-2">
+          <Crown className={`w-3.5 h-3.5 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
           <span className="font-bold">STATUS PRO ATIVADO</span>
-          <span className="text-slate-500">|</span>
-          <span className="text-slate-400 hidden sm:inline">Experiência VIP 100% Livre de Anúncios</span>
+          <span className={isLight ? 'text-amber-400' : 'text-slate-500'}>|</span>
+          <span className={`hidden sm:inline ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>Experiência VIP 100% Livre de Anúncios</span>
         </div>
-        <div className="flex items-center gap-1.5 text-emerald-400 text-[10px]">
+        <div className={`flex items-center gap-1.5 text-[10px] ${isLight ? 'text-emerald-700 font-bold' : 'text-emerald-400'}`}>
           <ShieldCheck className="w-3 h-3" />
           <span>RECURSOS ILIMITADOS</span>
         </div>
@@ -91,7 +97,11 @@ export default function TopAdBanner() {
   // Se o usuário inseriu o Google AdSense Client ID real
   if (googleAdSenseClientId) {
     return (
-      <div className="top-admob-strip relative z-50 bg-[#070d1e] border-b border-cyan-500/30 px-2 sm:px-4 py-1 flex items-center justify-between gap-2">
+      <div className={`top-admob-strip relative z-50 border-b px-2 sm:px-4 py-1 flex items-center justify-between gap-2 ${
+        isLight
+          ? 'bg-slate-50 border-slate-200 text-slate-800'
+          : 'bg-[#070d1e] border-cyan-500/30'
+      }`}>
         <div className="flex-1 overflow-hidden flex items-center justify-center">
           <ins
             ref={adSenseRef}
@@ -106,7 +116,11 @@ export default function TopAdBanner() {
         <button
           type="button"
           onClick={openProModal}
-          className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 text-[11px] font-bold shrink-0 flex items-center gap-1"
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 flex items-center gap-1 ${
+            isLight
+              ? 'bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900'
+              : 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300'
+          }`}
         >
           <Crown className="w-3 h-3" />
           <span>Remover</span>
@@ -119,14 +133,26 @@ export default function TopAdBanner() {
   const targetUrl = affiliateCustomUrl || currentAd.url;
 
   return (
-    <div className="top-admob-strip relative z-50 bg-[#070d1e] border-b border-cyan-500/30 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 shadow-inner">
+    <div className={`top-admob-strip relative z-50 border-b px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 transition-colors ${
+      isLight
+        ? 'bg-slate-50 border-slate-200 shadow-sm'
+        : 'bg-[#070d1e] border-cyan-500/30 shadow-inner'
+    }`}>
       {/* Left: Ad Label & Sponsored Content */}
       <div className="flex items-center gap-2.5 flex-1 min-w-[260px]">
-        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+        <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
+          isLight
+            ? 'bg-slate-200 text-slate-700 border-slate-300'
+            : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+        }`}>
           ANÚNCIO
         </span>
 
-        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border hidden md:inline shrink-0 ${currentAd.badgeColor}`}>
+        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border hidden md:inline shrink-0 ${
+          isLight
+            ? 'bg-blue-50 text-blue-700 border-blue-200'
+            : currentAd.badgeColor
+        }`}>
           {currentAd.tag}
         </span>
 
@@ -137,13 +163,25 @@ export default function TopAdBanner() {
           className="flex items-center gap-2 truncate group cursor-pointer"
           title="Clique para acessar o patrocinador"
         >
-          <span className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
+          <span className={`text-xs font-bold transition-colors truncate ${
+            isLight
+              ? 'text-slate-900 group-hover:text-blue-600'
+              : 'text-white group-hover:text-cyan-300'
+          }`}>
             {currentAd.title}
           </span>
-          <span className="text-[11px] text-slate-400 hidden lg:inline truncate group-hover:text-slate-300">
+          <span className={`text-[11px] hidden lg:inline truncate ${
+            isLight
+              ? 'text-slate-500 group-hover:text-slate-700'
+              : 'text-slate-400 group-hover:text-slate-300'
+          }`}>
             — {currentAd.subtitle}
           </span>
-          <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-cyan-400 shrink-0" />
+          <ExternalLink className={`w-3 h-3 shrink-0 ${
+            isLight
+              ? 'text-slate-400 group-hover:text-blue-600'
+              : 'text-slate-500 group-hover:text-cyan-400'
+          }`} />
         </a>
       </div>
 
@@ -153,7 +191,11 @@ export default function TopAdBanner() {
           href={targetUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-300 text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm"
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm ${
+            isLight
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-300'
+          }`}
         >
           <span>{currentAd.cta}</span>
         </a>
@@ -161,10 +203,14 @@ export default function TopAdBanner() {
         <button
           type="button"
           onClick={openProModal}
-          className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-400/40 text-amber-300 text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm hover:scale-[1.02] active:scale-95"
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm active:scale-95 ${
+            isLight
+              ? 'bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900'
+              : 'bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-400/40 text-amber-300 hover:scale-[1.02]'
+          }`}
           title="Assine o plano PRO para remover todos os anúncios"
         >
-          <Crown className="w-3 h-3 text-amber-400" />
+          <Crown className={`w-3 h-3 ${isLight ? 'text-amber-600' : 'text-amber-400'}`} />
           <span>Remover Anúncios</span>
         </button>
       </div>

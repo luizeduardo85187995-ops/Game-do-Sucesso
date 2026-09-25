@@ -133,58 +133,35 @@ function AppContent() {
         </>
       )}
 
-      {/* Futuristic Top HUD Telemetry Strip */}
-      <div className="hud-telemetry-bar relative z-50 bg-slate-950/90 border-b border-cyan-500/20 px-4 py-1 flex items-center justify-between text-[10px] font-mono text-slate-400 select-none">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-cyan-400">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping inline-block" />
-            <span className="font-bold tracking-wider">NEO-FINANCE v2.5</span>
-          </div>
-          <span className="text-slate-600">|</span>
-          <span className="hidden sm:inline text-slate-400">QUANTUM CORE: SYNC 60FPS</span>
-          <span className="hidden md:inline text-slate-600">|</span>
-          <span className="hidden md:inline text-emerald-400 flex items-center gap-1">
-            <Shield className="w-3 h-3" /> CRIPTOGRAFIA LOCAL AES-256
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:inline text-amber-300 font-bold flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-400" /> JORNADA HOLOGRÁFICA
-          </span>
-          <span className="text-cyan-300 font-mono tracking-widest">{currentTime}</span>
-        </div>
-      </div>
-
-      {/* Top AdMob / PRO Status Banner (Indicado na imagem do usuário) */}
+      {/* Top AdMob / PRO Status Banner */}
       <TopAdBanner />
 
       {/* Main Glass Navbar */}
       <header className="sticky top-0 z-40 bg-[#060b19]/85 backdrop-blur-2xl border-b border-white/10 shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          {/* Brand Logo with Holographic Hex Glow */}
+          {/* Brand Logo */}
           <div
             onClick={() => setActiveTab('overview')}
-            className="flex items-center gap-3.5 cursor-pointer select-none group"
+            className="flex items-center gap-3 cursor-pointer select-none group"
           >
             <div className="relative">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-400 via-teal-400 to-indigo-600 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-cyan-500/30 group-hover:scale-105 group-hover:shadow-cyan-400/50 transition-all">
-                <Gamepad2 className="w-6 h-6 text-slate-950" />
+                <Gamepad2 className="w-5 h-5 text-slate-950" />
               </div>
               <div className="absolute -inset-1 rounded-2xl bg-cyan-400/20 blur-sm -z-10 group-hover:bg-cyan-400/40 transition-colors" />
             </div>
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black text-white text-base tracking-tight leading-none holographic-text">
+                <span className="font-black text-white text-base tracking-tight leading-none holographic-text brand-title">
                   Minhas Finanças
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400/20 to-yellow-500/20 border border-amber-400/50 text-amber-300 text-[10px] font-mono font-black uppercase tracking-wider">
-                  + JOGO QUÂNTICO
+                <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[10px] font-semibold tracking-wide brand-pill">
+                  Jornada da Meta
                 </span>
               </div>
-              <p className="text-[10px] text-cyan-400/80 font-mono leading-none mt-1">
-                Controle Financeiro • Jornada da Meta 2030
+              <p className="text-[11px] text-slate-400 leading-none mt-1 brand-subtitle">
+                Controle Financeiro Pessoal & Investimentos
               </p>
             </div>
           </div>

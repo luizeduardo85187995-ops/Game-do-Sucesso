@@ -421,7 +421,7 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
                             R$ 14.850
                           </div>
                         </div>
-                        <div className={`text-[8px] font-bold px-1 py-0.5 rounded ${th.previewAccent} text-slate-950`}>
+                        <div className={`text-[8px] font-bold px-1 py-0.5 rounded ${th.previewAccent} ${th.id === 'pro_light' ? 'text-white' : 'text-slate-950'}`}>
                           +18%
                         </div>
                       </div>

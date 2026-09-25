@@ -49,10 +49,11 @@ export default function AIChatScreen() {
 
   // Initial greeting with dynamic diagnostic
   useEffect(() => {
+    const statusResult = metrics.monthNet >= 0 ? 'Superávit' : 'Déficit';
     const initialText =
       transactions.length === 0
-        ? `Olá! Sou o **Dante**, seu consultor financeiro com inteligência artificial no **Minhas Finanças**.\n\nEstou conectado aos seus registros para ajudar você com:\n• 📊 **Diagnóstico financeiro completo** do seu fluxo de caixa e despesas\n• 💡 **Orientações práticas de investimentos** (CDB, Tesouro Selic, FIIs e ações)\n• 🛡️ **Cálculo da reserva de emergência** ideal para sua tranquilidade\n• 🎮 **Estratégias práticas para acelerar sua Jornada da Meta**\n\nCadastre suas receitas e despesas ou digite sua dúvida financeira abaixo!`
-        : `Olá! Sou o **Dante**, seu consultor financeiro de inteligência artificial. Seus registros estão sincronizados em tempo real!\n\n**Seu Diagnóstico Atual:**\n• Saldo Total em Contas: **${formatBRL(metrics.balance)}**\n• Resultado deste Mês: **${formatBRL(metrics.monthNet)}**\n• Total em Investimentos: **${formatBRL(metrics.investedTotal)}**\n• Renda Passiva Estimada: **${formatBRL(metrics.estimatedPassiveIncome)}/mês**\n• Lançamentos analisados: **${transactions.length}**\n\nComo posso ajudar você a planejar, economizar ou investir melhor hoje?`;
+        ? `Olá! Sou o **Dante**, seu consultor financeiro de inteligência artificial no **Minhas Finanças**.\n\nEstou conectado aos seus registros para ajudar você com:\n• 📊 **Diagnóstico financeiro completo** do seu fluxo de caixa e despesas\n• 💡 **Orientações práticas de investimentos** (CDBs, Tesouro Selic, FIIs e ações na B3)\n• 🛡️ **Cálculo da reserva de emergência** ideal para sua tranquilidade\n• 🎯 **Estratégias práticas para acelerar sua Jornada da Meta**\n\nCadastre suas receitas e despesas ou digite sua dúvida financeira abaixo para começarmos!`
+        : `Olá! Sou o **Dante**, seu consultor financeiro de inteligência artificial. Seus registros estão sincronizados em tempo real!\n\n**Seu Diagnóstico Atual:**\n• Saldo Total em Contas: **${formatBRL(metrics.balance)}**\n• Resultado deste Mês: **${formatBRL(metrics.monthNet)}** (${statusResult})\n• Total em Investimentos: **${formatBRL(metrics.investedTotal)}**\n• Renda Passiva Estimada: **${formatBRL(metrics.estimatedPassiveIncome)}/mês**\n• Lançamentos analisados: **${transactions.length}**\n\nComo posso ajudar você a planejar, economizar ou investir com mais inteligência hoje?`;
 
     setMessages([
       {
@@ -341,7 +342,7 @@ function renderFormattedText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={i} className="font-bold text-cyan-300 print:text-slate-900">
+        <strong key={i} className="font-bold text-cyan-300 [.theme-pro_light_&]:text-blue-700 print:text-slate-900">
           {part.slice(2, -2)}
         </strong>
       );
