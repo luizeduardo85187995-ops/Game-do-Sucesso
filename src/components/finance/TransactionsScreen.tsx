@@ -16,7 +16,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { Transaction, TransactionType } from '../../types/finance';
 import { formatBRL, formatDateBR, monthKey, todayISO } from '../../utils/format';
-import { CATEGORY_COLORS } from '../../data/categories';
+import { CATEGORY_COLORS, getCategoryMeta } from '../../data/categories';
 import { parseBankNotification } from '../../utils/bankParser';
 
 interface TransactionsScreenProps {
@@ -32,6 +32,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     bankAccounts,
     incomeCategories,
     expenseCategories,
+    categoryIcons,
   } = useFinance();
 
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -251,7 +252,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
         ) : (
           <div className="divide-y divide-white/5">
             {filtered.map((tx) => {
-              const catStyle = CATEGORY_COLORS[tx.category] || CATEGORY_COLORS['Outros'];
+              const catStyle = getCategoryMeta(tx.category, categoryIcons);
               const bank = bankAccounts.find((b) => b.id === tx.bankAccountId);
 
               return (
@@ -436,7 +437,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">Categoria</label>
                 <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
                   {(formType === 'income' ? incomeCategories : expenseCategories).map((cat) => {
-                    const style = CATEGORY_COLORS[cat] || CATEGORY_COLORS['Outros'];
+                    const style = getCategoryMeta(cat, categoryIcons);
                     const isSelected = formCategory === cat;
                     return (
                       <button

@@ -31,6 +31,7 @@ import {
   Megaphone,
   BadgePercent,
   Copy,
+  Compass,
 } from 'lucide-react';
 import { useSettings, AppTheme, AppCurrency } from '../../context/SettingsContext';
 import { useFinance } from '../../context/FinanceContext';
@@ -38,7 +39,13 @@ import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
 
-export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoogle?: () => void }) {
+export default function SettingsScreen({
+  onNavigateToGoogle,
+  onStartTour,
+}: {
+  onNavigateToGoogle?: () => void;
+  onStartTour?: () => void;
+}) {
   const {
     theme,
     setTheme,
@@ -314,7 +321,18 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
         </div>
 
         {/* Quick Actions in Header */}
-        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 relative z-10">
+        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 relative z-10 flex-wrap">
+          {onStartTour && (
+            <button
+              type="button"
+              onClick={onStartTour}
+              className="px-3.5 py-2 rounded-xl border border-cyan-400/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-xs font-mono font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95"
+              title="Iniciar Tutorial Guiado pelas telas do app"
+            >
+              <Compass className="w-4 h-4 text-cyan-400" />
+              <span>Tutorial Guiado</span>
+            </button>
+          )}
           <button
             onClick={toggleHideValues}
             className={`px-3.5 py-2 rounded-xl border text-xs font-mono font-bold transition-all flex items-center gap-2 ${
@@ -954,6 +972,29 @@ export default function SettingsScreen({ onNavigateToGoogle }: { onNavigateToGoo
                 <li>PWA Instalável: Funciona offline no seu smartphone Android, iOS ou computador desktop.</li>
               </ul>
             </div>
+
+            {onStartTour && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/50 via-slate-900 to-indigo-950/50 border border-cyan-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 flex items-center justify-center shrink-0">
+                    <Compass className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Tutorial Guiado Tela por Tela</h4>
+                    <p className="text-xs text-slate-300">
+                      Revise para que serve cada recurso do app e entenda detalhadamente o que é o Plano PRO.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onStartTour}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-400 text-slate-950 text-xs font-black shadow-md shadow-cyan-500/20 hover:scale-105 active:scale-95 transition-all shrink-0"
+                >
+                  Iniciar Tutorial
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

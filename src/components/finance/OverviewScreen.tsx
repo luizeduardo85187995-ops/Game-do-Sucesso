@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
-import { CATEGORY_COLORS } from '../../data/categories';
+import { CATEGORY_COLORS, getCategoryMeta } from '../../data/categories';
 import SmartQuickLauncher from './SmartQuickLauncher';
 import { useAuth } from '../../context/AuthContext';
 import { GoogleLogo } from '../icons/GoogleLogo';
@@ -36,12 +36,14 @@ interface OverviewScreenProps {
   onNavigateToGame: (goalId?: string) => void;
   onOpenNewTransaction: (type?: 'income' | 'expense') => void;
   onNavigateToTab: (tab: string) => void;
+  onStartTour?: () => void;
 }
 
 export default function OverviewScreen({
   onNavigateToGame,
   onOpenNewTransaction,
   onNavigateToTab,
+  onStartTour,
 }: OverviewScreenProps) {
   const {
     metrics,
@@ -50,6 +52,7 @@ export default function OverviewScreen({
     savingGoals,
     activeGoalId,
     goals,
+    categoryIcons,
   } = useFinance();
   const { theme, formatMoney } = useSettings();
   const isLight = theme === 'pro_light';
@@ -63,8 +66,78 @@ export default function OverviewScreen({
   const { user } = useAuth();
   const { isPro, openProModal } = useSubscription();
 
+  const [tourBannerDismissed, setTourBannerDismissed] = useState(() => {
+    try {
+      return localStorage.getItem('has_dismissed_tour_banner') === 'true' || localStorage.getItem('has_completed_guided_tour') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleDismissTourBanner = () => {
+    setTourBannerDismissed(true);
+    try {
+      localStorage.setItem('has_dismissed_tour_banner', 'true');
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in relative">
+      {/* Optional Welcome Guided Tour Banner */}
+      {!tourBannerDismissed && onStartTour && (
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md transition-all ${
+          isLight
+            ? 'bg-gradient-to-r from-amber-50/90 via-sky-50/80 to-emerald-50/70 border-amber-200/80 text-slate-800'
+            : 'bg-gradient-to-r from-cyan-950/40 via-slate-900 to-indigo-950/40 border-cyan-500/30 text-white shadow-cyan-500/5'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-md ${
+              isLight ? 'bg-amber-500 text-slate-950' : 'bg-gradient-to-br from-cyan-400 to-blue-600 text-slate-950'
+            }`}>
+              <Compass className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm font-black">
+                  Novo por aqui? Faça o Tutorial Guiado
+                </span>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold border ${
+                  isLight ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                }`}>
+                  Opcional
+                </span>
+              </div>
+              <p className={`text-[11px] mt-0.5 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+                Aprenda tela por tela como lançar gastos, organizar metas e entenda claramente o que é o recurso PRO.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={handleDismissTourBanner}
+              className={`px-3 py-1.5 rounded-xl text-xs transition-colors ${
+                isLight ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/60' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Agora não
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDismissTourBanner();
+                onStartTour();
+              }}
+              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-slate-950 text-xs font-black shadow-md shadow-cyan-500/20 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Fazer Tour Guiado</span>
+            </button>
+          </div>
+        </div>
+      )}
       {/* Google Account Welcome Badge if connected or CTA if not */}
       {user ? (
         <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-transparent border border-emerald-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md shadow-emerald-500/5">
@@ -164,6 +237,21 @@ export default function OverviewScreen({
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 flex-wrap">
+          {onStartTour && (
+            <button
+              type="button"
+              onClick={onStartTour}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 border ${
+                isLight
+                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-400/40 text-amber-300 shadow-amber-500/10'
+              }`}
+              title="Iniciar Tutorial Guiado pelas telas"
+            >
+              <Compass className="w-3.5 h-3.5 text-amber-400" />
+              <span>Tour Guiado</span>
+            </button>
+          )}
           <button
             onClick={() => onNavigateToTab('ai')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95 border ${
@@ -541,7 +629,7 @@ export default function OverviewScreen({
           <div className="divide-y divide-white/5">
             {recentTransactions.map((tx) => {
               const isInc = tx.type === 'income';
-              const catStyle = CATEGORY_COLORS[tx.category] || CATEGORY_COLORS['Outros'];
+              const catStyle = getCategoryMeta(tx.category, categoryIcons);
 
               return (
                 <div

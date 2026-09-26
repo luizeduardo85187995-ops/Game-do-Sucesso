@@ -47,18 +47,8 @@ import GoogleAuthScreen from './components/finance/GoogleAuthScreen';
 import SettingsScreen from './components/finance/SettingsScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GoogleLogo } from './components/icons/GoogleLogo';
-
-type TabId =
-  | 'overview'
-  | 'transactions'
-  | 'banks'
-  | 'investments'
-  | 'planning'
-  | 'reports'
-  | 'ai'
-  | 'game'
-  | 'settings'
-  | 'google';
+import { TabId } from './types/navigation';
+import GuidedTour from './components/tutorial/GuidedTour';
 
 // Clean, high-value primary financial modules (Settings and Google account sit dedicated on top right header)
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }>; highlight?: boolean; badge?: string }[] = [
@@ -77,6 +67,7 @@ function AppContent() {
   const [targetGameGoalId, setTargetGameGoalId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [isTourOpen, setIsTourOpen] = useState(false);
 
   const { metrics, setActiveGoalId, resetAllData, cloudSyncStatus } = useFinance();
   const { user } = useAuth();
@@ -399,6 +390,23 @@ function AppContent() {
               <span className="font-mono">{isPro ? 'PRO' : 'PRO'}</span>
             </button>
 
+            {/* Guided Tour Launcher Button */}
+            <button
+              type="button"
+              onClick={() => setIsTourOpen(true)}
+              className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                isTourOpen
+                  ? 'bg-cyan-500 text-slate-950 border-cyan-400 font-black shadow-cyan-500/20'
+                  : isLight
+                  ? 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 text-cyan-300'
+              }`}
+              title="Fazer Tutorial Guiado (Passo a Passo pelas telas)"
+            >
+              <Compass className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Tutorial</span>
+            </button>
+
             <PWAInstallButton />
 
             {/* Mobile/Tablet Hamburger */}
@@ -506,6 +514,20 @@ function AppContent() {
             <div className={`border-t my-2 pt-2 ${isLight ? 'border-slate-200' : 'border-white/10'}`}>
               <button
                 onClick={() => {
+                  setIsTourOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 ${
+                  isLight
+                    ? 'text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 mb-1'
+                    : 'text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 mb-1'
+                }`}
+              >
+                <Compass className="w-4 h-4 text-cyan-400" />
+                <span>Tutorial Guiado (Passo a Passo)</span>
+              </button>
+              <button
+                onClick={() => {
                   setActiveTab('settings');
                   setMobileMenuOpen(false);
                 }}
@@ -540,6 +562,7 @@ function AppContent() {
             onNavigateToGame={handleNavigateToGame}
             onOpenNewTransaction={() => setActiveTab('transactions')}
             onNavigateToTab={(tab) => setActiveTab(tab as TabId)}
+            onStartTour={() => setIsTourOpen(true)}
           />
         )}
 
@@ -562,7 +585,10 @@ function AppContent() {
         )}
 
         {activeTab === 'settings' && (
-          <SettingsScreen onNavigateToGoogle={() => setActiveTab('google')} />
+          <SettingsScreen
+            onNavigateToGoogle={() => setActiveTab('google')}
+            onStartTour={() => setIsTourOpen(true)}
+          />
         )}
 
         {activeTab === 'google' && <GoogleAuthScreen />}
@@ -598,6 +624,18 @@ function AppContent() {
           </div>
         </div>
       </footer>
+
+      {/* Optional Interactive Guided Tour */}
+      <GuidedTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        activeTab={activeTab}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenProModal={openProModal}
+      />
 
       {/* Subscription / Pro Upgrade Modal */}
       <ProModal />

@@ -16,8 +16,8 @@ import { SavingGoal } from '../../types/finance';
 import { formatBRL } from '../../utils/format';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { Crown, Lock } from 'lucide-react';
-
-const EMOJI_OPTIONS = ['🎯', '✈️', '🏠', '🚗', '📚', '💍', '💻', '🎸', '🏖️', '🛡️', '👑', '🚀'];
+import { GOAL_COLORS, GOAL_EMOJIS } from '../../data/colors';
+import { EXPENSE_CATEGORY_ICONS, INCOME_CATEGORY_ICONS, getCategoryMeta } from '../../data/categories';
 
 interface PlanningScreenProps {
   onNavigateToGame: (goalId: string) => void;
@@ -35,6 +35,8 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
     setGoals,
     incomeCategories,
     expenseCategories,
+    categoryIcons,
+    setCategoryIcon,
     addCategory,
     removeCategory,
   } = useFinance();
@@ -44,6 +46,7 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
   const [editingGoal, setEditingGoal] = useState<SavingGoal | null>(null);
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('🎯');
+  const [theme, setTheme] = useState(GOAL_COLORS[0].gradient);
   const [targetAmount, setTargetAmount] = useState('');
   const [currentAmount, setCurrentAmount] = useState('');
   const [categoryTag, setCategoryTag] = useState('Lazer');
@@ -52,9 +55,17 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
 
-  // Category inputs
+  // Category inputs & icons
   const [newExpenseCat, setNewExpenseCat] = useState('');
+  const [selectedExpenseIcon, setSelectedExpenseIcon] = useState('🛒');
+  const [showExpenseIconPicker, setShowExpenseIconPicker] = useState(false);
+
   const [newIncomeCat, setNewIncomeCat] = useState('');
+  const [selectedIncomeIcon, setSelectedIncomeIcon] = useState('💼');
+  const [showIncomeIconPicker, setShowIncomeIconPicker] = useState(false);
+
+  // Quick edit icon for existing category
+  const [editingCategoryIcon, setEditingCategoryIcon] = useState<{ name: string; type: 'expense' | 'income' } | null>(null);
 
   // Structural goals edit
   const [isEditingStructural, setIsEditingStructural] = useState(false);
@@ -71,6 +82,7 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
     setEditingGoal(null);
     setName('');
     setEmoji('🎯');
+    setTheme(GOAL_COLORS[0].gradient);
     setTargetAmount('');
     setCurrentAmount('');
     setCategoryTag('Lazer');
@@ -81,6 +93,7 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
     setEditingGoal(goal);
     setName(goal.name);
     setEmoji(goal.emoji);
+    setTheme(goal.theme || GOAL_COLORS[0].gradient);
     setTargetAmount(String(goal.targetAmount));
     setCurrentAmount(String(goal.currentAmount));
     setCategoryTag(goal.categoryTag);
@@ -100,6 +113,7 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
         targetAmount: target,
         currentAmount: current,
         categoryTag,
+        theme,
       });
     } else {
       addSavingGoal({
@@ -108,9 +122,26 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
         targetAmount: target,
         currentAmount: current,
         categoryTag,
+        theme,
       });
     }
     setShowGoalModal(false);
+  };
+
+  const handleAddExpenseCategory = () => {
+    const trimmed = newExpenseCat.trim();
+    if (!trimmed) return;
+    addCategory('expense', trimmed, selectedExpenseIcon);
+    setNewExpenseCat('');
+    setShowExpenseIconPicker(false);
+  };
+
+  const handleAddIncomeCategory = () => {
+    const trimmed = newIncomeCat.trim();
+    if (!trimmed) return;
+    addCategory('income', trimmed, selectedIncomeIcon);
+    setNewIncomeCat('');
+    setShowIncomeIconPicker(false);
   };
 
   const handleDeposit = (e: React.FormEvent) => {
@@ -378,86 +409,318 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
       {/* Category Management */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Expense Categories */}
-        <div className="glass-card rounded-3xl p-5 border border-white/10 space-y-3">
-          <h4 className="font-bold text-white text-sm">Categorias de Despesas</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {expenseCategories.map((c) => (
-              <span
-                key={c}
-                className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-1"
-              >
-                <span>{c}</span>
-                {expenseCategories.length > 3 && (
-                  <button
-                    onClick={() => removeCategory('expense', c)}
-                    className="text-slate-500 hover:text-rose-400"
-                  >
-                    ×
-                  </button>
-                )}
-              </span>
-            ))}
+        <div className="glass-card rounded-3xl p-5 border border-white/10 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-white text-sm flex items-center gap-2">
+              <span>💳</span>
+              <span>Categorias de Despesas</span>
+            </h4>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {expenseCategories.length} categorias
+            </span>
           </div>
 
-          <div className="flex gap-2 pt-2">
-            <input
-              type="text"
-              value={newExpenseCat}
-              onChange={(e) => setNewExpenseCat(e.target.value)}
-              placeholder="Nova categoria de despesa..."
-              className="flex-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-            />
-            <button
-              onClick={() => {
-                addCategory('expense', newExpenseCat);
-                setNewExpenseCat('');
-              }}
-              className="px-3 py-1.5 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 text-xs font-bold"
-            >
-              Adicionar
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {expenseCategories.map((c) => {
+              const meta = getCategoryMeta(c, categoryIcons);
+              return (
+                <div
+                  key={c}
+                  className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-200 flex items-center gap-1.5 hover:border-white/20 transition-all group"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategoryIcon({ name: c, type: 'expense' })}
+                    title="Clique para trocar o ícone"
+                    className="hover:scale-125 transition-transform"
+                  >
+                    <span>{meta.emoji}</span>
+                  </button>
+                  <span className="font-medium">{c}</span>
+                  {expenseCategories.length > 3 && (
+                    <button
+                      onClick={() => removeCategory('expense', c)}
+                      className="text-slate-500 hover:text-rose-400 ml-1 opacity-70 group-hover:opacity-100 transition-opacity"
+                      title="Excluir categoria"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick change icon for existing expense category */}
+          {editingCategoryIcon && editingCategoryIcon.type === 'expense' && (
+            <div className="p-3 rounded-2xl bg-slate-900 border border-amber-400/40 space-y-2 animate-fade-in shadow-xl">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-amber-300 font-bold">
+                  Mudar ícone de "{editingCategoryIcon.name}":
+                </span>
+                <button
+                  onClick={() => setEditingCategoryIcon(null)}
+                  className="text-white/50 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
+                {EXPENSE_CATEGORY_ICONS.map((ic) => (
+                  <button
+                    key={ic}
+                    type="button"
+                    onClick={() => {
+                      setCategoryIcon(editingCategoryIcon.name, ic);
+                      setEditingCategoryIcon(null);
+                    }}
+                    className="w-8 h-8 rounded-lg bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400 text-base flex items-center justify-center transition-all"
+                  >
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add Category Row with Icon Selector */}
+          <div className="pt-2 border-t border-white/10 space-y-2">
+            <label className="block text-[11px] font-semibold text-slate-400">
+              Adicionar Nova Categoria com Ícone:
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExpenseIconPicker(!showExpenseIconPicker);
+                  setShowIncomeIconPicker(false);
+                }}
+                className={`w-11 h-10 rounded-xl border flex items-center justify-center text-xl transition-all shadow-sm ${
+                  showExpenseIconPicker
+                    ? 'bg-amber-400/20 border-amber-400 text-amber-300 scale-105 ring-2 ring-amber-400/30'
+                    : 'bg-white/5 hover:bg-white/10 border-white/15 hover:border-white/30'
+                }`}
+                title="Clique para escolher o ícone da categoria"
+              >
+                {selectedExpenseIcon}
+              </button>
+
+              <input
+                type="text"
+                value={newExpenseCat}
+                onChange={(e) => setNewExpenseCat(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddExpenseCategory();
+                  }
+                }}
+                placeholder="Ex: Mercado, Farmácia, Lazer..."
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+              />
+
+              <button
+                type="button"
+                onClick={handleAddExpenseCategory}
+                disabled={!newExpenseCat.trim()}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-amber-400/20 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar</span>
+              </button>
+            </div>
+
+            {/* Expense Icon Picker Grid */}
+            {showExpenseIconPicker && (
+              <div className="p-3 rounded-2xl bg-slate-900 border border-amber-400/40 space-y-2 animate-fade-in shadow-2xl">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-amber-300 font-bold">Escolha um Ícone para a Categoria:</span>
+                  <button
+                    onClick={() => setShowExpenseIconPicker(false)}
+                    className="text-white/50 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-8 sm:grid-cols-10 gap-1.5 max-h-36 overflow-y-auto p-1">
+                  {EXPENSE_CATEGORY_ICONS.map((ic) => (
+                    <button
+                      key={ic}
+                      type="button"
+                      onClick={() => {
+                        setSelectedExpenseIcon(ic);
+                        setShowExpenseIconPicker(false);
+                      }}
+                      className={`h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
+                        selectedExpenseIcon === ic
+                          ? 'bg-amber-400/30 border-2 border-amber-400 scale-110 shadow-md'
+                          : 'bg-white/5 hover:bg-white/15 border border-white/10'
+                      }`}
+                    >
+                      {ic}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Income Categories */}
-        <div className="glass-card rounded-3xl p-5 border border-white/10 space-y-3">
-          <h4 className="font-bold text-white text-sm">Categorias de Receitas</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {incomeCategories.map((c) => (
-              <span
-                key={c}
-                className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-1"
-              >
-                <span>{c}</span>
-                {incomeCategories.length > 2 && (
-                  <button
-                    onClick={() => removeCategory('income', c)}
-                    className="text-slate-500 hover:text-rose-400"
-                  >
-                    ×
-                  </button>
-                )}
-              </span>
-            ))}
+        <div className="glass-card rounded-3xl p-5 border border-white/10 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-white text-sm flex items-center gap-2">
+              <span>💰</span>
+              <span>Categorias de Receitas</span>
+            </h4>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {incomeCategories.length} categorias
+            </span>
           </div>
 
-          <div className="flex gap-2 pt-2">
-            <input
-              type="text"
-              value={newIncomeCat}
-              onChange={(e) => setNewIncomeCat(e.target.value)}
-              placeholder="Nova categoria de receita..."
-              className="flex-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white"
-            />
-            <button
-              onClick={() => {
-                addCategory('income', newIncomeCat);
-                setNewIncomeCat('');
-              }}
-              className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold"
-            >
-              Adicionar
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {incomeCategories.map((c) => {
+              const meta = getCategoryMeta(c, categoryIcons);
+              return (
+                <div
+                  key={c}
+                  className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-200 flex items-center gap-1.5 hover:border-white/20 transition-all group"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setEditingCategoryIcon({ name: c, type: 'income' })}
+                    title="Clique para trocar o ícone"
+                    className="hover:scale-125 transition-transform"
+                  >
+                    <span>{meta.emoji}</span>
+                  </button>
+                  <span className="font-medium">{c}</span>
+                  {incomeCategories.length > 2 && (
+                    <button
+                      onClick={() => removeCategory('income', c)}
+                      className="text-slate-500 hover:text-rose-400 ml-1 opacity-70 group-hover:opacity-100 transition-opacity"
+                      title="Excluir categoria"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick change icon for existing income category */}
+          {editingCategoryIcon && editingCategoryIcon.type === 'income' && (
+            <div className="p-3 rounded-2xl bg-slate-900 border border-emerald-400/40 space-y-2 animate-fade-in shadow-xl">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-emerald-300 font-bold">
+                  Mudar ícone de "{editingCategoryIcon.name}":
+                </span>
+                <button
+                  onClick={() => setEditingCategoryIcon(null)}
+                  className="text-white/50 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
+                {INCOME_CATEGORY_ICONS.map((ic) => (
+                  <button
+                    key={ic}
+                    type="button"
+                    onClick={() => {
+                      setCategoryIcon(editingCategoryIcon.name, ic);
+                      setEditingCategoryIcon(null);
+                    }}
+                    className="w-8 h-8 rounded-lg bg-white/5 hover:bg-emerald-400/20 border border-white/10 hover:border-emerald-400 text-base flex items-center justify-center transition-all"
+                  >
+                    {ic}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add Category Row with Icon Selector */}
+          <div className="pt-2 border-t border-white/10 space-y-2">
+            <label className="block text-[11px] font-semibold text-slate-400">
+              Adicionar Nova Categoria com Ícone:
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowIncomeIconPicker(!showIncomeIconPicker);
+                  setShowExpenseIconPicker(false);
+                }}
+                className={`w-11 h-10 rounded-xl border flex items-center justify-center text-xl transition-all shadow-sm ${
+                  showIncomeIconPicker
+                    ? 'bg-emerald-400/20 border-emerald-400 text-emerald-300 scale-105 ring-2 ring-emerald-400/30'
+                    : 'bg-white/5 hover:bg-white/10 border-white/15 hover:border-white/30'
+                }`}
+                title="Clique para escolher o ícone da categoria"
+              >
+                {selectedIncomeIcon}
+              </button>
+
+              <input
+                type="text"
+                value={newIncomeCat}
+                onChange={(e) => setNewIncomeCat(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddIncomeCategory();
+                  }
+                }}
+                placeholder="Ex: Salário, Freelance, Rendimentos..."
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/15 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+              />
+
+              <button
+                type="button"
+                onClick={handleAddIncomeCategory}
+                disabled={!newIncomeCat.trim()}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 text-xs font-black transition-all shadow-md shadow-emerald-400/20 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar</span>
+              </button>
+            </div>
+
+            {/* Income Icon Picker Grid */}
+            {showIncomeIconPicker && (
+              <div className="p-3 rounded-2xl bg-slate-900 border border-emerald-400/40 space-y-2 animate-fade-in shadow-2xl">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-emerald-300 font-bold">Escolha um Ícone para a Categoria:</span>
+                  <button
+                    onClick={() => setShowIncomeIconPicker(false)}
+                    className="text-white/50 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-8 sm:grid-cols-10 gap-1.5 max-h-36 overflow-y-auto p-1">
+                  {INCOME_CATEGORY_ICONS.map((ic) => (
+                    <button
+                      key={ic}
+                      type="button"
+                      onClick={() => {
+                        setSelectedIncomeIcon(ic);
+                        setShowIncomeIconPicker(false);
+                      }}
+                      className={`h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
+                        selectedIncomeIcon === ic
+                          ? 'bg-emerald-400/30 border-2 border-emerald-400 scale-110 shadow-md'
+                          : 'bg-white/5 hover:bg-white/15 border border-white/10'
+                      }`}
+                    >
+                      {ic}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -481,20 +744,40 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
             <form onSubmit={handleSaveGoal} className="space-y-4">
               {/* Emoji Picker */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Ícone / Emoji</label>
-                <div className="flex flex-wrap gap-2">
-                  {EMOJI_OPTIONS.map((em) => (
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Ícone / Emoji da Meta</label>
+                <div className="grid grid-cols-8 gap-1.5 max-h-32 overflow-y-auto p-1 bg-white/[0.02] rounded-xl border border-white/5">
+                  {GOAL_EMOJIS.map((em) => (
                     <button
                       key={em}
                       type="button"
                       onClick={() => setEmoji(em)}
-                      className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
+                      className={`h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
                         emoji === em
-                          ? 'bg-amber-400/30 border border-amber-400 scale-110'
+                          ? 'bg-amber-400/30 border border-amber-400 scale-110 shadow-md'
                           : 'bg-white/5 border border-white/10 hover:bg-white/10'
                       }`}
                     >
                       {em}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Color Theme */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Tema de Cor</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {GOAL_COLORS.map((c) => (
+                    <button
+                      key={c.gradient}
+                      type="button"
+                      onClick={() => setTheme(c.gradient)}
+                      className={`h-9 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center transition-all ${
+                        theme === c.gradient ? 'ring-2 ring-white scale-105 shadow-md' : 'opacity-50 hover:opacity-85'
+                      }`}
+                      title={c.name}
+                    >
+                      {theme === c.gradient && <Check className="w-4 h-4 text-white drop-shadow" />}
                     </button>
                   ))}
                 </div>

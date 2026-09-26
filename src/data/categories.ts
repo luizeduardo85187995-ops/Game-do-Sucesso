@@ -35,6 +35,40 @@ export const CATEGORY_COLORS: Record<string, { bg: string; text: string; emoji: 
   Outros: { bg: 'bg-slate-500/20 border-slate-500/40', text: 'text-slate-400', emoji: '🏷️' },
 };
 
+export const EXPENSE_CATEGORY_ICONS = [
+  '🛒', '🏠', '🚗', '🍔', '💊', '🎓', '🎬', '✈️', '⚡', '💧',
+  '📱', '💻', '🏋️', '🐶', '👔', '💈', '☕', '👶', '🔧', '⛽',
+  '🍕', '🏥', '🏖️', '🚌', '🛍️', '📦', '🧹', '🛡️', '🎮', '🏷️',
+  '🍽️', '🚴', '🐾', '💄', '📚', '🎂', '🍻', '🍿', '🚕', '🩺'
+];
+
+export const INCOME_CATEGORY_ICONS = [
+  '💼', '💻', '🎁', '📈', '💰', '🏦', '🪙', '💵', '💳', '🏆',
+  '🏢', '🏪', '🤝', '💎', '🎯', '🚀', '⭐', '📦', '🏷️', '✨',
+  '🛍️', '🏡', '🔑', '📊', '🥇', '💸', '🤑', '💶', '💷', '💡'
+];
+
+export function getCategoryMeta(
+  categoryName: string,
+  customIcons?: Record<string, string>
+): { bg: string; text: string; emoji: string } {
+  const customEmoji = customIcons?.[categoryName];
+  const base = CATEGORY_COLORS[categoryName];
+
+  if (base) {
+    if (customEmoji) {
+      return { ...base, emoji: customEmoji };
+    }
+    return base;
+  }
+
+  return {
+    bg: 'bg-cyan-500/20 border-cyan-500/40',
+    text: 'text-cyan-400',
+    emoji: customEmoji || '🏷️',
+  };
+}
+
 export const INVESTMENT_TYPES: { value: InvestmentType; label: string }[] = [
   { value: 'fii', label: 'FII (Fundo Imobiliário)' },
   { value: 'etf', label: 'ETF' },

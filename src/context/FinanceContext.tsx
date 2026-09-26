@@ -53,6 +53,7 @@ interface FinanceContextValue {
   savingGoals: SavingGoal[];
   incomeCategories: string[];
   expenseCategories: string[];
+  categoryIcons: Record<string, string>;
   goals: Goals;
   base: BaseSettings;
   investmentFocus: InvestmentFocus;
@@ -102,8 +103,9 @@ interface FinanceContextValue {
   setGoals: (goals: Partial<Goals>) => void;
   setBase: (base: Partial<BaseSettings>) => void;
   setInvestmentFocus: (focus: InvestmentFocus) => void;
-  addCategory: (type: TransactionType, name: string) => void;
+  addCategory: (type: TransactionType, name: string, icon?: string) => void;
   removeCategory: (type: TransactionType, name: string) => void;
+  setCategoryIcon: (categoryName: string, icon: string) => void;
   resetAllData: () => void;
   exportAllData: () => any;
   importAllData: (data: any) => boolean;
@@ -153,6 +155,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [savingGoals, setSavingGoals] = useState<SavingGoal[]>(INITIAL_GOALS);
   const [incomeCategories, setIncomeCategories] = useState<string[]>(DEFAULT_INCOME_CATEGORIES);
   const [expenseCategories, setExpenseCategories] = useState<string[]>(DEFAULT_EXPENSE_CATEGORIES);
+  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
   const [goals, setGoalsState] = useState<Goals>({ monthly: 0, reserve: 0, passiveIncome: 0, investedPatrimony: 0 });
   const [base, setBaseState] = useState<BaseSettings>({ startingBalance: 0, fixedIncome: 0 });
   const [investmentFocus, setInvestmentFocus] = useState<InvestmentFocus>('income');
@@ -183,6 +186,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (Array.isArray(parsed.savingGoals) && parsed.savingGoals.length > 0) setSavingGoals(parsed.savingGoals);
     if (Array.isArray(parsed.incomeCategories) && parsed.incomeCategories.length > 0) setIncomeCategories(parsed.incomeCategories);
     if (Array.isArray(parsed.expenseCategories) && parsed.expenseCategories.length > 0) setExpenseCategories(parsed.expenseCategories);
+    if (parsed.categoryIcons && typeof parsed.categoryIcons === 'object') setCategoryIcons(parsed.categoryIcons);
     if (parsed.goals) setGoalsState(parsed.goals);
     if (parsed.base) setBaseState(parsed.base);
     if (parsed.investmentFocus) setInvestmentFocus(parsed.investmentFocus);
@@ -265,6 +269,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
               savingGoals,
               incomeCategories,
               expenseCategories,
+              categoryIcons,
               goals,
               base,
               investmentFocus,
@@ -287,6 +292,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
             savingGoals,
             incomeCategories,
             expenseCategories,
+            categoryIcons,
             goals,
             base,
             investmentFocus,
@@ -322,6 +328,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       savingGoals,
       incomeCategories,
       expenseCategories,
+      categoryIcons,
       goals,
       base,
       investmentFocus,
@@ -863,7 +870,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setBaseState((prev) => ({ ...prev, ...newBase }));
   };
 
-  const addCategory = (type: TransactionType, name: string) => {
+  const addCategory = (type: TransactionType, name: string, icon?: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     if (type === 'income') {
@@ -875,6 +882,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         setExpenseCategories((prev) => [...prev, trimmed]);
       }
     }
+    if (icon) {
+      setCategoryIcons((prev) => ({ ...prev, [trimmed]: icon }));
+    }
+  };
+
+  const setCategoryIcon = (categoryName: string, icon: string) => {
+    if (!categoryName || !icon) return;
+    setCategoryIcons((prev) => ({ ...prev, [categoryName]: icon }));
   };
 
   const removeCategory = (type: TransactionType, name: string) => {
@@ -883,6 +898,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     } else {
       setExpenseCategories((prev) => prev.filter((c) => c !== name));
     }
+    setCategoryIcons((prev) => {
+      const copy = { ...prev };
+      delete copy[name];
+      return copy;
+    });
   };
 
   const resetAllData = () => {
@@ -898,6 +918,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setSavingGoals(INITIAL_GOALS);
     setIncomeCategories(DEFAULT_INCOME_CATEGORIES);
     setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+    setCategoryIcons({});
     setGoalsState({ monthly: 0, reserve: 0, passiveIncome: 0, investedPatrimony: 0 });
     setBaseState({ startingBalance: 0, fixedIncome: 0 });
     setActiveGoalId('goal-1');
@@ -913,6 +934,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       savingGoals,
       incomeCategories,
       expenseCategories,
+      categoryIcons,
       goals,
       base,
       investmentFocus,
@@ -929,6 +951,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       if (Array.isArray(data.savingGoals)) setSavingGoals(data.savingGoals);
       if (Array.isArray(data.incomeCategories)) setIncomeCategories(data.incomeCategories);
       if (Array.isArray(data.expenseCategories)) setExpenseCategories(data.expenseCategories);
+      if (data.categoryIcons && typeof data.categoryIcons === 'object') setCategoryIcons(data.categoryIcons);
       if (data.goals) setGoalsState(data.goals);
       if (data.base) setBaseState(data.base);
       if (data.investmentFocus) setInvestmentFocus(data.investmentFocus);
@@ -949,6 +972,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         savingGoals,
         incomeCategories,
         expenseCategories,
+        categoryIcons,
         goals,
         base,
         investmentFocus,
@@ -990,6 +1014,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         setInvestmentFocus,
         addCategory,
         removeCategory,
+        setCategoryIcon,
         resetAllData,
         exportAllData,
         importAllData,

@@ -12,6 +12,7 @@ import {
   Wallet,
   Star,
   Gamepad2,
+  Edit2,
 } from 'lucide-react';
 import { Goal, GoalColor, CharacterSkinId, CharacterState, ParticleEffect } from '../../types';
 import { GOAL_COLORS } from '../../data/colors';
@@ -25,6 +26,7 @@ import {
   AmountModal,
   WalletModal,
   SkinSelectorModal,
+  EditGoalModal,
 } from '../GoalModals';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL } from '../../utils/format';
@@ -41,6 +43,7 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
     activeGoalId,
     setActiveGoalId,
     addSavingGoal,
+    updateSavingGoal,
     deleteSavingGoal,
     depositToGoal,
     withdrawFromGoal,
@@ -55,7 +58,7 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
     currentAmount: g.currentAmount,
     createdAt: g.createdAt,
     emoji: g.emoji || '🎯',
-    color: GOAL_COLORS[idx % GOAL_COLORS.length].gradient,
+    color: g.theme || GOAL_COLORS[idx % GOAL_COLORS.length].gradient,
   }));
 
   // Selected goal
@@ -90,6 +93,8 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showSkinModal, setShowSkinModal] = useState(false);
@@ -230,6 +235,37 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
     setShowCreateModal(false);
   };
 
+  // Edit Goal
+  const handleSaveEditedGoal = (
+    id: string,
+    changes: {
+      name: string;
+      targetAmount: number;
+      currentAmount: number;
+      color: string;
+      emoji: string;
+    }
+  ) => {
+    updateSavingGoal(id, {
+      name: changes.name,
+      targetAmount: changes.targetAmount,
+      currentAmount: changes.currentAmount,
+      emoji: changes.emoji,
+      theme: changes.color,
+    });
+    sounds.playVictory();
+    spawnParticles(16, ['✨', '🎯', '⭐', '🏆']);
+    setShowEditModal(false);
+    setEditingGoal(null);
+  };
+
+  const handleOpenEditGoal = (goalToEdit?: Goal | null) => {
+    const target = goalToEdit || activeGoal;
+    if (!target) return;
+    setEditingGoal(target);
+    setShowEditModal(true);
+  };
+
   const handleOpenCreateGoal = () => {
     if (!isPro && savingGoals.length >= 1) {
       openProModal();
@@ -336,6 +372,16 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
               </button>
 
               <button
+                onClick={() => handleOpenEditGoal(activeGoal)}
+                className="py-3.5 px-4 rounded-2xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-bold text-xs transition-all flex items-center gap-1.5 active:scale-98"
+                title="Editar nome, valores, ícone e tema da meta"
+              >
+                <Edit2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Editar Meta</span>
+                <span className="sm:hidden">Editar</span>
+              </button>
+
+              <button
                 onClick={() => setShowSkinModal(true)}
                 className="py-3.5 px-4 rounded-2xl bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-300 font-bold text-xs transition-all flex items-center gap-2"
                 title="Mudar visual do herói"
@@ -401,7 +447,20 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
                     </div>
                   </div>
 
-                  <span className="text-xs font-black text-amber-400">{gPct.toFixed(0)}%</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-amber-400">{gPct.toFixed(0)}%</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEditGoal(g);
+                      }}
+                      className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                      title="Editar esta meta"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -449,6 +508,24 @@ export default function GameTabScreen({ initialGoalId }: GameTabScreenProps) {
             sounds.playStep();
           }}
           onClose={() => setShowSkinModal(false)}
+        />
+      )}
+
+      {showEditModal && editingGoal && (
+        <EditGoalModal
+          goal={editingGoal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingGoal(null);
+          }}
+          onSave={handleSaveEditedGoal}
+          onDelete={(id) => {
+            deleteSavingGoal(id);
+            sounds.playWithdraw();
+            setShowEditModal(false);
+            setEditingGoal(null);
+          }}
+          formatCurrency={formatBRL}
         />
       )}
     </div>

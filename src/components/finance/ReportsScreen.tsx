@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR, monthKey } from '../../utils/format';
-import { CATEGORY_COLORS } from '../../data/categories';
+import { CATEGORY_COLORS, getCategoryMeta } from '../../data/categories';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { Crown, Lock, ShieldCheck, Check, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -24,7 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 export default function ReportsScreen() {
   const { user } = useAuth();
   const { isPro, openProModal } = useSubscription();
-  const { transactions, metrics, savingGoals, bankAccounts, investments, goals } = useFinance();
+  const { transactions, metrics, savingGoals, bankAccounts, investments, goals, categoryIcons } = useFinance();
   const [activeChartType, setActiveChartType] = useState<'categories' | 'monthly' | 'distribution'>('categories');
   const [filterPeriod, setFilterPeriod] = useState<'all' | '3m' | '6m'>('all');
   const [isExporting, setIsExporting] = useState(false);
@@ -369,7 +369,7 @@ export default function ReportsScreen() {
                 ) : (
                   <div className="space-y-2.5">
                     {sortedExpenses.slice(0, 6).map((item, idx) => {
-                      const style = CATEGORY_COLORS[item.category] || CATEGORY_COLORS['Outros'];
+                      const style = getCategoryMeta(item.category, categoryIcons);
                       return (
                         <div key={idx} className="bg-slate-900/60 p-2.5 rounded-xl border border-white/5 space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
@@ -476,7 +476,7 @@ export default function ReportsScreen() {
             ) : (
               <div className="space-y-2.5">
                 {sortedIncome.map((item, idx) => {
-                  const style = CATEGORY_COLORS[item.category] || CATEGORY_COLORS['Outros'];
+                  const style = getCategoryMeta(item.category, categoryIcons);
                   return (
                     <div key={idx} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
@@ -729,7 +729,7 @@ export default function ReportsScreen() {
                 sortedExpenses.map((item, idx) => (
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                     <td className="py-2 px-3 font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>{CATEGORY_COLORS[item.category]?.emoji || '🏷️'}</span>
+                      <span>{getCategoryMeta(item.category, categoryIcons).emoji}</span>
                       <span>{item.category}</span>
                     </td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-slate-950">
