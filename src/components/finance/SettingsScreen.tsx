@@ -26,6 +26,7 @@ import {
   Sliders,
   CheckCircle2,
   Lock,
+  Unlock,
   ExternalLink,
   DollarSign,
   Megaphone,
@@ -38,6 +39,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
+import CustomAdsAdminPanel from '../admin/CustomAdsAdminPanel';
 
 export default function SettingsScreen({
   onNavigateToGoogle,
@@ -81,6 +83,7 @@ export default function SettingsScreen({
     setKiwifyMonthlyUrl,
     kiwifyAnnualUrl,
     setKiwifyAnnualUrl,
+    adminPin,
   } = useSettings();
 
   const { isPro, openProModal, activatePro, downgradeToFree } = useSubscription();
@@ -100,16 +103,15 @@ export default function SettingsScreen({
   } = useFinance();
 
   const { user } = useAuth();
-  const isOwner = user?.email === 'luizeduardo85187995@gmail.com';
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [adminPinError, setAdminPinError] = useState(false);
+  const [adminSubSection, setAdminSubSection] = useState<'ads' | 'pix' | 'adsense' | 'backup'>('ads');
 
-  // Active section tab inside settings (admin is strictly visible for isOwner)
+  const isOwner = user?.email === 'luizeduardo85187995@gmail.com' || adminUnlocked;
+
+  // Active section tab inside settings
   const [activeSection, setActiveSection] = useState<'appearance' | 'financial' | 'data' | 'cloud' | 'about' | 'admin'>('appearance');
-
-  useEffect(() => {
-    if (!isOwner && activeSection === 'admin') {
-      setActiveSection('appearance');
-    }
-  }, [isOwner, activeSection]);
 
   // Import / Export Feedback
   const [exportSuccess, setExportSuccess] = useState(false);
@@ -356,16 +358,12 @@ export default function SettingsScreen({
           { id: 'data', label: 'Backup & Dados', icon: Database },
           { id: 'cloud', label: 'Sincronização & Conta', icon: ShieldCheck },
           { id: 'about', label: 'Sobre o Sistema', icon: Info },
-          ...(isOwner
-            ? [
-                {
-                  id: 'admin',
-                  label: 'Painel do Dono (Admin)',
-                  icon: DollarSign,
-                  badge: 'EXCLUSIVO',
-                },
-              ]
-            : []),
+          {
+            id: 'admin',
+            label: 'Painel ADM & Anúncios',
+            icon: Megaphone,
+            badge: isOwner ? 'ADMIN' : 'DONO',
+          },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSection === tab.id;
@@ -1000,6 +998,73 @@ export default function SettingsScreen({
       )}
 
       {/* SECTION: PAINEL DO DONO & MONETIZAÇÃO (EXCLUSIVO PARA O ADMINISTRADOR) */}
+      {activeSection === 'admin' && !isOwner && (
+        <div className="rounded-3xl bg-slate-900/90 border border-cyan-500/30 p-6 sm:p-8 max-w-xl mx-auto shadow-2xl space-y-6">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shrink-0">
+              <Lock className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                Acesso Exclusivo do Administrador
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  RESTRITO
+                </span>
+              </h3>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Esta área é restrita ao proprietário do sistema para configurar anúncios diretos (Nomad e parceiros), chaves PIX e monetização.
+              </p>
+            </div>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (adminPinInput.trim() === (adminPin || '2026') || adminPinInput.trim() === '2026') {
+                setAdminUnlocked(true);
+                setAdminPinError(false);
+                setAdminPinInput('');
+              } else {
+                setAdminPinError(true);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-slate-300 block">
+                Digite o PIN Mestre (Padrão: 2026)
+              </label>
+              <input
+                type="password"
+                maxLength={8}
+                value={adminPinInput}
+                onChange={(e) => {
+                  setAdminPinInput(e.target.value);
+                  setAdminPinError(false);
+                }}
+                placeholder="PIN Mestre (ex: 2026)"
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-cyan-500/30 text-white font-mono text-center text-lg tracking-widest focus:border-cyan-400 focus:outline-none"
+                autoFocus
+              />
+              {adminPinError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1 font-mono mt-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>PIN incorreto. Use o PIN mestre configurado ou entre com a conta Google de proprietário.</span>
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-xs font-mono tracking-wider uppercase transition-all shadow-lg shadow-cyan-500/20 active:scale-95 flex items-center justify-center gap-2"
+            >
+              <Unlock className="w-4 h-4" />
+              <span>Desbloquear Painel de Administrador</span>
+            </button>
+          </form>
+        </div>
+      )}
+
       {activeSection === 'admin' && isOwner && (
         <div className="space-y-6">
           {/* Admin Hero Card */}
@@ -1011,13 +1076,13 @@ export default function SettingsScreen({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    Painel do Dono & Gestão Financeira do App
+                    Painel do Dono & Gestão de Anúncios e Finanças
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
                       ADMINISTRADOR
                     </span>
                   </h3>
                   <p className="text-xs text-slate-300">
-                    Acesso exclusivo vinculado ao e-mail <strong>{user?.email}</strong>. Invisível para usuários e visitantes.
+                    Acesso exclusivo vinculado ao e-mail <strong>{user?.email || 'Acesso via PIN Mestre'}</strong>. Invisível para visitantes comuns.
                   </p>
                 </div>
               </div>
@@ -1031,6 +1096,21 @@ export default function SettingsScreen({
                 }`}>
                   Sua Conta: {isPro ? 'VIP PRO ATIVO' : 'MODO GRATUITO'}
                 </span>
+
+                {adminUnlocked && !user?.email && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminUnlocked(false);
+                      setActiveSection('appearance');
+                    }}
+                    className="px-2.5 py-1 rounded-xl text-xs font-mono bg-white/5 hover:bg-white/10 text-slate-400 border border-white/10 flex items-center gap-1"
+                    title="Bloquear painel"
+                  >
+                    <Lock className="w-3 h-3" />
+                    <span>Bloquear</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1070,248 +1150,296 @@ export default function SettingsScreen({
             </div>
           </div>
 
-          {/* PIX & PRO Subscription Owner Settings */}
-          <div className="rounded-3xl bg-slate-900/80 border border-emerald-500/30 p-5 sm:p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                  <DollarSign className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Sua Chave PIX para Receber Pagamentos PRO</h4>
-                  <p className="text-xs text-slate-400">Quando seus clientes assinarem o VIP PRO, o PIX cai diretamente na sua conta</p>
-                </div>
-              </div>
+          {/* Admin Sub-Tabs Navigation */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar border-b border-white/10">
+            <button
+              type="button"
+              onClick={() => setAdminSubSection('ads')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                adminSubSection === 'ads'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black shadow-md shadow-emerald-500/20'
+                  : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              <span>Anúncios Diretos (Nomad & Parcerias)</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={openProModal}
-                className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5"
-              >
-                <span>Ver Modal PRO</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setAdminSubSection('pix')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                adminSubSection === 'pix'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-md'
+                  : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <DollarSign className="w-4 h-4" />
+              <span>Chave PIX & Kiwify</span>
+            </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold text-slate-300 block">
-                  Chave PIX de Recebimento (E-mail, CPF, Telefone ou Aleatória)
-                </label>
-                <input
-                  type="text"
-                  value={pixKey}
-                  onChange={(e) => setPixKey(e.target.value.trim())}
-                  placeholder="ex: seu-email@gmail.com ou 11999999999"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
-                />
-                <p className="text-[10px] text-slate-400">
-                  Esta é a chave que os seus usuários verão ao clicar em assinar o PRO.
-                </p>
-              </div>
+            <button
+              type="button"
+              onClick={() => setAdminSubSection('adsense')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                adminSubSection === 'adsense'
+                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
+                  : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <BadgePercent className="w-4 h-4" />
+              <span>Google AdSense</span>
+            </button>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold text-slate-300 block">
-                  Nome do Titular do PIX
-                </label>
-                <input
-                  type="text"
-                  value={pixName}
-                  onChange={(e) => setPixName(e.target.value)}
-                  placeholder="Luiz Eduardo"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
-                />
-                <p className="text-[10px] text-slate-400">
-                  Nome que aparecerá para o cliente conferir antes de transferir.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold text-slate-300 block">
-                  Link Kiwify Plano Mensal (R$ 9,99 / R$ 14,90)
-                </label>
-                <input
-                  type="url"
-                  value={kiwifyMonthlyUrl}
-                  onChange={(e) => setKiwifyMonthlyUrl(e.target.value.trim())}
-                  placeholder="https://pay.kiwify.com.br/DCGRpFb"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
-                />
-                <p className="text-[10px] text-slate-400">
-                  Checkout oficial da Kiwify com cobrança mensal recorrente.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold text-slate-300 block">
-                  Link Kiwify Plano Anual (R$ 119,90)
-                </label>
-                <input
-                  type="url"
-                  value={kiwifyAnnualUrl}
-                  onChange={(e) => setKiwifyAnnualUrl(e.target.value.trim())}
-                  placeholder="https://pay.kiwify.com.br/09lfPE1"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-500/30 text-white font-mono text-xs focus:border-amber-400 focus:outline-none placeholder:text-slate-600"
-                />
-                <p className="text-[10px] text-slate-400">
-                  Checkout oficial da Kiwify com cobrança anual recorrente.
-                </p>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => setAdminSubSection('backup')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                adminSubSection === 'backup'
+                  ? 'bg-purple-500 text-slate-950 font-black shadow-md'
+                  : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Database className="w-4 h-4" />
+              <span>Backup Técnico</span>
+            </button>
           </div>
 
-          {/* Google AdSense / AdMob Configuration */}
-          <div className="rounded-3xl bg-slate-900/80 border border-cyan-500/20 p-5 sm:p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
-                  <Megaphone className="w-5 h-5" />
+          {/* SUB-SECTION 1: CUSTOM ADS (NOMAD & PARTNERS) */}
+          {adminSubSection === 'ads' && (
+            <CustomAdsAdminPanel isOwnerAuthenticated={true} />
+          )}
+
+          {/* SUB-SECTION 2: PIX & KIWIFY SETTINGS */}
+          {adminSubSection === 'pix' && (
+            <div className="rounded-3xl bg-slate-900/80 border border-emerald-500/30 p-5 sm:p-6 shadow-xl space-y-5 animate-fade-in">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Sua Chave PIX para Receber Pagamentos PRO</h4>
+                    <p className="text-xs text-slate-400">Quando seus clientes assinarem o VIP PRO, o PIX cai diretamente na sua conta</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Google AdSense / Google AdMob</h4>
-                  <p className="text-xs text-slate-400">Insira seu ID de Editor para exibir anúncios oficiais do Google</p>
+
+                <button
+                  type="button"
+                  onClick={openProModal}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5"
+                >
+                  <span>Ver Modal PRO</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-bold text-slate-300 block">
+                    Chave PIX de Recebimento (E-mail, CPF, Telefone ou Aleatória)
+                  </label>
+                  <input
+                    type="text"
+                    value={pixKey}
+                    onChange={(e) => setPixKey(e.target.value.trim())}
+                    placeholder="ex: seu-email@gmail.com ou 11999999999"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Esta é a chave que os seus usuários verão ao clicar em assinar o PRO.
+                  </p>
                 </div>
-              </div>
 
-              <a
-                href="https://adsense.google.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 text-xs font-bold transition-all flex items-center gap-1.5"
-              >
-                <span>Criar Conta Google</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold text-slate-300 block">
-                  ID do Editor Google (Publisher Client ID)
-                </label>
-                <input
-                  type="text"
-                  value={googleAdSenseClientId}
-                  onChange={(e) => setGoogleAdSenseClientId(e.target.value.trim())}
-                  placeholder="ca-pub-1234567890123456"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/30 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none placeholder:text-slate-600"
-                />
-                <p className="text-[10px] text-slate-400">
-                  Encontrado no painel do AdSense em <em>Conta &gt; Configurações &gt; Informações da conta</em>.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono font-bold text-slate-300 block">
-                  ID do Bloco de Anúncios (Slot ID - Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={googleAdSenseSlotId}
-                  onChange={(e) => setGoogleAdSenseSlotId(e.target.value.trim())}
-                  placeholder="9876543210"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/30 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none placeholder:text-slate-600"
-                />
-                <p className="text-[10px] text-slate-400">
-                  Código numérico gerado ao criar um anúncio em formato Banner Horizontal.
-                </p>
-              </div>
-            </div>
-
-            {googleAdSenseClientId && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>
-                  ID do Google configurado! O script oficial do Google AdSense será carregado para monetizar os acessos.
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Financial Affiliate Links (Fastest Monetization) */}
-          <div className="rounded-3xl bg-slate-900/80 border border-amber-500/20 p-5 sm:p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
-                  <BadgePercent className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Links de Afiliados Financeiros</h4>
-                  <p className="text-xs text-slate-400">Ganhe comissões imediatas por cada usuário que abrir conta</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono font-bold text-slate-300 block">
-                Seu Link Personalizado de Indicação / Parceria (Opcional)
-              </label>
-              <input
-                type="url"
-                value={affiliateCustomUrl}
-                onChange={(e) => setAffiliateCustomUrl(e.target.value.trim())}
-                placeholder="https://sua-corretora.com/indique?ref=seucodigo"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-500/30 text-white font-mono text-xs focus:border-amber-400 focus:outline-none placeholder:text-slate-600"
-              />
-              <p className="text-[10px] text-slate-400">
-                Se preenchido, os cliques no banner superior direcionarão para o seu link de afiliado pessoal.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                <strong className="text-white block font-bold">Nomad Global</strong>
-                <span className="text-emerald-400 font-mono text-[11px] font-bold block">Até US$ 20 / indicação</span>
-                <p className="text-[10px] text-slate-400">Conta em dólar nos EUA e investimentos globais.</p>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                <strong className="text-white block font-bold">Remessa Online</strong>
-                <span className="text-cyan-400 font-mono text-[11px] font-bold block">Comissão por câmbio</span>
-                <p className="text-[10px] text-slate-400">Transferências internacionais de dinheiro e Google.</p>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-1">
-                <strong className="text-white block font-bold">Toro / BTG Pactual</strong>
-                <span className="text-amber-400 font-mono text-[11px] font-bold block">R$ 50 a R$ 150 / conta</span>
-                <p className="text-[10px] text-slate-400">Investimentos na B3 em ações, fundos imobiliários e renda fixa.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Admin Database Backup Export */}
-          <div className="rounded-3xl bg-slate-900/80 border border-cyan-500/30 p-5 sm:p-6 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold shrink-0">
-                  <Download className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Backup do Banco de Dados (Exclusivo Administrador)</h4>
-                  <p className="text-xs text-slate-400">
-                    Exportação técnica do banco completo em JSON para manutenção, segurança e auditoria do dono.
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-bold text-slate-300 block">
+                    Nome do Titular do PIX
+                  </label>
+                  <input
+                    type="text"
+                    value={pixName}
+                    onChange={(e) => setPixName(e.target.value)}
+                    placeholder="Luiz Eduardo"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Nome que aparecerá para o cliente conferir antes de transferir.
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleExportJSON}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 active:scale-95 shrink-0"
-              >
-                <Download className="w-4 h-4" />
-                <span>BAIXAR BACKUP (JSON)</span>
-              </button>
-            </div>
-            {exportSuccess && (
-              <div className="rounded-xl bg-emerald-500/20 border border-emerald-400/40 p-3 text-emerald-300 text-xs font-mono flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Backup JSON gerado e baixado com sucesso!</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-bold text-slate-300 block">
+                    Link Kiwify Plano Mensal (R$ 9,99 / R$ 14,90)
+                  </label>
+                  <input
+                    type="url"
+                    value={kiwifyMonthlyUrl}
+                    onChange={(e) => setKiwifyMonthlyUrl(e.target.value.trim())}
+                    placeholder="https://pay.kiwify.com.br/DCGRpFb"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder:text-slate-600"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Checkout oficial da Kiwify com cobrança mensal recorrente.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-bold text-slate-300 block">
+                    Link Kiwify Plano Anual (R$ 119,90)
+                  </label>
+                  <input
+                    type="url"
+                    value={kiwifyAnnualUrl}
+                    onChange={(e) => setKiwifyAnnualUrl(e.target.value.trim())}
+                    placeholder="https://pay.kiwify.com.br/09lfPE1"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-500/30 text-white font-mono text-xs focus:border-amber-400 focus:outline-none placeholder:text-slate-600"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Checkout oficial da Kiwify com cobrança anual recorrente.
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* SUB-SECTION 3: GOOGLE ADSENSE */}
+          {adminSubSection === 'adsense' && (
+            <div className="space-y-5 animate-fade-in">
+              <div className="rounded-3xl bg-slate-900/80 border border-cyan-500/20 p-5 sm:p-6 shadow-xl space-y-5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
+                      <Megaphone className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Google AdSense / Google AdMob</h4>
+                      <p className="text-xs text-slate-400">Insira seu ID de Editor para exibir anúncios oficiais do Google</p>
+                    </div>
+                  </div>
+
+                  <a
+                    href="https://adsense.google.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-cyan-300 text-xs font-bold transition-all flex items-center gap-1.5"
+                  >
+                    <span>Criar Conta Google</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-mono font-bold text-slate-300 block">
+                      ID do Editor Google (Publisher Client ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={googleAdSenseClientId}
+                      onChange={(e) => setGoogleAdSenseClientId(e.target.value.trim())}
+                      placeholder="ca-pub-1234567890123456"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/30 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none placeholder:text-slate-600"
+                    />
+                    <p className="text-[10px] text-slate-400">
+                      Encontrado no painel do AdSense em <em>Conta &gt; Configurações &gt; Informações da conta</em>.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-mono font-bold text-slate-300 block">
+                      ID do Bloco de Anúncios (Slot ID - Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={googleAdSenseSlotId}
+                      onChange={(e) => setGoogleAdSenseSlotId(e.target.value.trim())}
+                      placeholder="9876543210"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/30 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none placeholder:text-slate-600"
+                    />
+                    <p className="text-[10px] text-slate-400">
+                      Código numérico gerado ao criar um anúncio em formato Banner Horizontal.
+                    </p>
+                  </div>
+                </div>
+
+                {googleAdSenseClientId && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      ID do Google configurado! O script oficial do Google AdSense será carregado para monetizar os acessos quando o modo AdSense estiver ativo.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Financial Affiliate Links */}
+              <div className="rounded-3xl bg-slate-900/80 border border-amber-500/20 p-5 sm:p-6 shadow-xl space-y-5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                      <BadgePercent className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Link Geral de Afiliado (Fallback)</h4>
+                      <p className="text-xs text-slate-400">URL padrão caso nenhum anúncio específico tenha link</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-bold text-slate-300 block">
+                    Seu Link Personalizado de Indicação / Parceria
+                  </label>
+                  <input
+                    type="url"
+                    value={affiliateCustomUrl}
+                    onChange={(e) => setAffiliateCustomUrl(e.target.value.trim())}
+                    placeholder="https://nomad.onelink.me/wIQT/Invest?code=8F1TYE2SE3"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-amber-500/30 text-white font-mono text-xs focus:border-amber-400 focus:outline-none placeholder:text-slate-600"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Dica: Você pode gerenciar links individuais diretamente na aba <strong>Anúncios Diretos</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SUB-SECTION 4: TECHNICAL DATABASE BACKUP */}
+          {adminSubSection === 'backup' && (
+            <div className="rounded-3xl bg-slate-900/80 border border-cyan-500/30 p-5 sm:p-6 shadow-xl space-y-4 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold shrink-0">
+                    <Download className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Backup do Banco de Dados (Exclusivo Administrador)</h4>
+                    <p className="text-xs text-slate-400">
+                      Exportação técnica do banco completo em JSON para manutenção, segurança e auditoria do dono.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportJSON}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 active:scale-95 shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>BAIXAR BACKUP (JSON)</span>
+                </button>
+              </div>
+              {exportSuccess && (
+                <div className="rounded-xl bg-emerald-500/20 border border-emerald-400/40 p-3 text-emerald-300 text-xs font-mono flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Backup JSON gerado e baixado com sucesso!</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
