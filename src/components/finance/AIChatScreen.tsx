@@ -49,11 +49,19 @@ export default function AIChatScreen() {
 
   // Initial greeting with dynamic diagnostic
   useEffect(() => {
-    const statusResult = metrics.monthNet >= 0 ? 'Superávit' : 'Déficit';
+    let situacaoTexto = '';
+    if (metrics.monthNet > 0) {
+      situacaoTexto = `🟢 Sobrando **${formatBRL(metrics.monthNet)}** neste mês! Uma ótima folga para mandar um pedacinho para a sua meta.`;
+    } else if (metrics.monthNet < 0) {
+      situacaoTexto = `🔴 Suas saídas estão maiores em **${formatBRL(Math.abs(metrics.monthNet))}** neste mês. Mas calma, sem pânico: vamos ajustar juntos!`;
+    } else {
+      situacaoTexto = `⚪ Entradas e saídas estão equilibradas este mês.`;
+    }
+
     const initialText =
       transactions.length === 0
-        ? `Olá! Sou o **Dante**, seu consultor financeiro de inteligência artificial no **Minhas Finanças**.\n\nEstou conectado aos seus registros para ajudar você com:\n• 📊 **Diagnóstico financeiro completo** do seu fluxo de caixa e despesas\n• 💡 **Orientações práticas de investimentos** (CDBs, Tesouro Selic, FIIs e ações na B3)\n• 🛡️ **Cálculo da reserva de emergência** ideal para sua tranquilidade\n• 🎯 **Estratégias práticas para acelerar sua Jornada da Meta**\n\nCadastre suas receitas e despesas ou digite sua dúvida financeira abaixo para começarmos!`
-        : `Olá! Sou o **Dante**, seu consultor financeiro de inteligência artificial. Seus registros estão sincronizados em tempo real!\n\n**Seu Diagnóstico Atual:**\n• Saldo Total em Contas: **${formatBRL(metrics.balance)}**\n• Resultado deste Mês: **${formatBRL(metrics.monthNet)}** (${statusResult})\n• Total em Investimentos: **${formatBRL(metrics.investedTotal)}**\n• Renda Passiva Estimada: **${formatBRL(metrics.estimatedPassiveIncome)}/mês**\n• Lançamentos analisados: **${transactions.length}**\n\nComo posso ajudar você a planejar, economizar ou investir com mais inteligência hoje?`;
+        ? `Oi! Sou o **Dante**, seu mentor e amigo financeiro aqui no **Minhas Finanças** 🐾💡\n\nEu não tô aqui pra te julgar, nem pra falar termos complicados de economia. Meu papel é te ajudar a organizar sua vida financeira no seu ritmo, sem neura e sem sofrimento.\n\n**Como posso te ajudar hoje:**\n• 🛑 **Descobrir para onde o seu dinheiro está sumindo** e fechar ralos invisíveis\n• 🛍️ **Controlar compras por impulso**, delivery e fatura de cartão\n• 🐷 **Aprender a guardar os primeiros R$ 20, R$ 50 ou R$ 100**, mesmo que nunca sobre nada\n• 🎯 **Montar uma rotina simples** pra você nunca mais ficar no aperto\n\nMe conta: qual é a sua maior dificuldade com dinheiro hoje ou o que você quer melhorar na sua rotina?`
+        : `Oi! Sou o **Dante**, seu mentor financeiro de bolso 🐾\n\nJá analisei seus dados cadastrados e aqui está o seu **Raio-X em tempo real**:\n• 💰 Saldo total nas contas: **${formatBRL(metrics.balance)}**\n• 📊 Situação deste mês: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\nNão importa se você ganha muito ou pouco, ou se está desorganizado: a gente começa de onde você está agora. O que você gostaria de destravar hoje?`;
 
     setMessages([
       {
@@ -131,12 +139,30 @@ export default function AIChatScreen() {
   };
 
   const SUGGESTIONS = [
-    { label: 'Como está meu saldo e resultado?', query: 'Como está meu saldo atual e o resultado do meu mês? Faça uma avaliação.' },
-    { label: 'Dicas para investir agora', query: 'Com base no meu patrimônio e perfil, quais são as melhores dicas de investimento no Brasil hoje (Selic, FIIs, Tesouro)?' },
-    { label: 'Analise meus maiores gastos', query: 'Analise minhas transações e identifique para onde está indo a maior parte do meu dinheiro.' },
-    { label: 'Calcular minha reserva ideal', query: 'Quanto eu deveria ter de reserva de emergência com base nos meus gastos mensais e como montar?' },
-    { label: 'Regra orçamentária 50/30/20', query: 'Como posso aplicar a regra 50/30/20 na prática com os meus ganhos e despesas atuais?' },
-    { label: 'Como acelerar a Jornada da Meta?', query: 'Me dê um plano de ação prático para economizar mais rápido e alcançar o topo da minha meta na Jornada.' },
+    {
+      label: '🆘 Tô no vermelho, por onde começo?',
+      query: 'Tô meio enrolado com as contas e sinto que meu dinheiro não rende. Por onde eu começo a me organizar na prática sem pirar?',
+    },
+    {
+      label: '🛍️ Como parar de gastar por impulso?',
+      query: 'Tenho muita dificuldade com compras por impulso, delivery e cartão de crédito. Quais hábitos fáceis você me ensina pra frear isso?',
+    },
+    {
+      label: '🔍 Analise onde estou gastando mais',
+      query: 'Dá uma olhada nos meus lançamentos e me mostra onde está indo a maior parte do meu dinheiro e onde dá pra cortar sem sofrer.',
+    },
+    {
+      label: '🐷 Como guardar meus primeiros R$ 50?',
+      query: 'Nunca sobra dinheiro no fim do mês e eu nunca investi. Qual a estratégia mais simples pra eu conseguir guardar meus primeiros R$ 50 ou R$ 100 todo mês?',
+    },
+    {
+      label: '💳 Como lidar com o cartão de crédito?',
+      query: 'Sempre me perco com a fatura do cartão de crédito. Como usar o cartão a meu favor sem me endividar todo mês?',
+    },
+    {
+      label: '🧗 Como acelerar minha Meta na montanha?',
+      query: 'Com base no meu saldo e nos meus gastos de hoje, qual o plano de ação mais realista para eu avançar na minha Meta?',
+    },
   ];
 
   if (!isPro) {
@@ -181,7 +207,7 @@ export default function AIChatScreen() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg sm:text-xl font-black text-white font-mono tracking-tight flex items-center gap-2">
-                Dante <span className="text-cyan-400 neon-text-cyan">• Consultor Financeiro IA</span>
+                Dante <span className="text-cyan-400 neon-text-cyan">• Mentor de Hábitos & Finanças</span>
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -189,7 +215,7 @@ export default function AIChatScreen() {
               </span>
             </div>
             <p className="text-xs text-slate-300 font-mono mt-0.5">
-              Inteligência artificial financeira com telemetria direta dos seus lançamentos e metas.
+              Seu parceiro inteligente para organizar sua vida financeira, mudar hábitos e sair do aperto.
             </p>
           </div>
         </div>
@@ -327,7 +353,7 @@ export default function AIChatScreen() {
             </button>
           </div>
           <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-2 px-1">
-            <span>Dante Inteligência Financeira • Consultor particular em tempo real</span>
+            <span>Dante Mentor Financeiro • Estratégias reais para mudar seus hábitos</span>
             <span className="hidden sm:inline">Pressione Enter para enviar (Shift+Enter para quebrar linha)</span>
           </div>
         </div>

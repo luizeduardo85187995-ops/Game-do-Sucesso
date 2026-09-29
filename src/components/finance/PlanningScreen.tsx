@@ -332,17 +332,18 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openEditGoalModal(goal)}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
-                        title="Editar"
+                        className="px-2.5 py-1 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/40 text-amber-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
+                        title="Abrir Editor de Meta"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
+                        <span>Editar Meta</span>
                       </button>
                       <button
                         onClick={() => deleteSavingGoal(goal.id)}
-                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
+                        className="p-1.5 rounded-xl hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-all"
                         title="Excluir"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -730,12 +731,26 @@ export default function PlanningScreen({ onNavigateToGame }: PlanningScreenProps
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-3xl bg-slate-900 border border-white/15 p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-white text-lg">
-                {editingGoal ? 'Editar Meta de Sonho' : 'Nova Meta de Sonho'}
-              </h3>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-white text-lg">
+                    {editingGoal ? 'Editor de Meta' : 'Criar Nova Meta'}
+                  </h3>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                    editingGoal
+                      ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
+                      : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                  }`}>
+                    {editingGoal ? 'EDITAR' : 'NOVA'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {editingGoal ? 'Edite o nome, valor alvo, valor guardado, ícone ou tema' : 'Defina um objetivo para acompanhar e escalar no jogo'}
+                </p>
+              </div>
               <button
                 onClick={() => setShowGoalModal(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+                className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>

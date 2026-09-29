@@ -22,6 +22,7 @@ import {
   Bot,
   Crown,
   Compass,
+  Edit2,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
@@ -31,6 +32,8 @@ import { useAuth } from '../../context/AuthContext';
 import { GoogleLogo } from '../icons/GoogleLogo';
 import { useSettings } from '../../context/SettingsContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { EditGoalModal } from '../GoalModals';
+import { SavingGoal } from '../../types/finance';
 
 interface OverviewScreenProps {
   onNavigateToGame: (goalId?: string) => void;
@@ -53,9 +56,13 @@ export default function OverviewScreen({
     activeGoalId,
     goals,
     categoryIcons,
+    updateSavingGoal,
+    deleteSavingGoal,
   } = useFinance();
   const { theme, formatMoney } = useSettings();
   const isLight = theme === 'pro_light';
+
+  const [editingGoal, setEditingGoal] = useState<SavingGoal | null>(null);
 
   const activeGoal = savingGoals.find((g) => g.id === activeGoalId) || savingGoals[0];
   const goalPercent = activeGoal
@@ -484,14 +491,32 @@ export default function OverviewScreen({
               </div>
             )}
 
-            <button
-              onClick={() => onNavigateToGame(activeGoal?.id)}
-              className="py-3 px-6 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm transition-all shadow-md hover:scale-105 active:scale-95 flex items-center justify-center gap-2 group/btn"
-            >
-              <Compass className="w-4 h-4 group-hover/btn:rotate-45 transition-transform" />
-              <span>ACOMPANHAR META</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {activeGoal && (
+                <button
+                  type="button"
+                  onClick={() => setEditingGoal(activeGoal)}
+                  className={`py-3 px-4 rounded-2xl font-bold text-xs transition-all border flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0 ${
+                    isLight
+                      ? 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-900'
+                      : 'bg-amber-400/15 hover:bg-amber-400/25 border-amber-400/40 text-amber-300'
+                  }`}
+                  title="Abrir Editor de Meta para ajustar valores, nome ou tema"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Editar Meta</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => onNavigateToGame(activeGoal?.id)}
+                className="flex-1 sm:flex-initial py-3 px-6 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm transition-all shadow-md hover:scale-105 active:scale-95 flex items-center justify-center gap-2 group/btn"
+              >
+                <Compass className="w-4 h-4 group-hover/btn:rotate-45 transition-transform" />
+                <span>ACOMPANHAR META</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -712,6 +737,37 @@ export default function OverviewScreen({
             <span>Assinar VIP PRO</span>
           </button>
         </div>
+      )}
+
+      {/* Editor de Meta Modal */}
+      {editingGoal && (
+        <EditGoalModal
+          goal={{
+            id: editingGoal.id,
+            name: editingGoal.name,
+            targetAmount: editingGoal.targetAmount,
+            currentAmount: editingGoal.currentAmount,
+            createdAt: editingGoal.createdAt,
+            color: editingGoal.theme || 'from-amber-400 to-amber-600',
+            emoji: editingGoal.emoji || '🎯',
+          }}
+          onClose={() => setEditingGoal(null)}
+          onSave={(id, changes) => {
+            updateSavingGoal(id, {
+              name: changes.name,
+              targetAmount: changes.targetAmount,
+              currentAmount: changes.currentAmount,
+              emoji: changes.emoji,
+              theme: changes.color,
+            });
+            setEditingGoal(null);
+          }}
+          onDelete={(id) => {
+            deleteSavingGoal(id);
+            setEditingGoal(null);
+          }}
+          formatCurrency={formatBRL}
+        />
       )}
     </div>
   );

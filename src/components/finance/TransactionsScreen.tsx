@@ -16,7 +16,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { Transaction, TransactionType } from '../../types/finance';
 import { formatBRL, formatDateBR, monthKey, todayISO } from '../../utils/format';
-import { CATEGORY_COLORS, getCategoryMeta } from '../../data/categories';
+import { CATEGORY_COLORS, getCategoryMeta, EXPENSE_CATEGORY_ICONS, INCOME_CATEGORY_ICONS } from '../../data/categories';
 import { parseBankNotification } from '../../utils/bankParser';
 
 interface TransactionsScreenProps {
@@ -33,12 +33,21 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     incomeCategories,
     expenseCategories,
     categoryIcons,
+    addCategory,
+    setCategoryIcon,
   } = useFinance();
 
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // New Category with Icon inline creator
+  const [showAddCatInline, setShowAddCatInline] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('🛒');
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [editingCatIconFor, setEditingCatIconFor] = useState<string | null>(null);
 
   // Smart paste notification tool
   const [showNotificationImporter, setShowNotificationImporter] = useState(false);
@@ -61,7 +70,20 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     setFormDate(todayISO());
     setFormNote('');
     setFormBankId(bankAccounts[0]?.id || '');
+    setShowAddCatInline(false);
+    setShowIconPicker(false);
+    setEditingCatIconFor(null);
     setShowModal(true);
+  };
+
+  const handleAddNewCategory = () => {
+    const trimmed = newCatName.trim();
+    if (!trimmed) return;
+    addCategory(formType, trimmed, newCatIcon);
+    setFormCategory(trimmed);
+    setNewCatName('');
+    setShowAddCatInline(false);
+    setShowIconPicker(false);
   };
 
   const openEditModal = (tx: Transaction) => {
@@ -434,25 +456,181 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
 
               {/* Category */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Categoria</label>
-                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Categoria da {formType === 'income' ? 'Receita' : 'Despesa'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddCatInline(!showAddCatInline);
+                      setNewCatIcon(formType === 'income' ? '💼' : '🛒');
+                      setShowIconPicker(false);
+                      setEditingCatIconFor(null);
+                    }}
+                    className="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors px-2 py-0.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>{showAddCatInline ? 'Fechar' : 'Nova Categoria com Ícone'}</span>
+                  </button>
+                </div>
+
+                {/* Inline Category Creator with Icon Picker */}
+                {showAddCatInline && (
+                  <div className="p-3 mb-2 rounded-2xl bg-slate-900 border border-cyan-500/40 space-y-2.5 animate-fade-in shadow-xl">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-cyan-300">
+                        Nova Categoria com Ícone ({formType === 'income' ? 'Receita' : 'Despesa'}):
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddCatInline(false);
+                          setShowIconPicker(false);
+                        }}
+                        className="text-slate-400 hover:text-white text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowIconPicker(!showIconPicker)}
+                        className={`w-11 h-10 rounded-xl border flex items-center justify-center text-xl transition-all shadow-sm ${
+                          showIconPicker
+                            ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 scale-105'
+                            : 'bg-white/5 hover:bg-white/10 border-white/20'
+                        }`}
+                        title="Clique para escolher o ícone da categoria"
+                      >
+                        {newCatIcon}
+                      </button>
+
+                      <input
+                        type="text"
+                        value={newCatName}
+                        onChange={(e) => setNewCatName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddNewCategory();
+                          }
+                        }}
+                        placeholder="Nome da categoria (ex: Pets, Café, Academia...)"
+                        className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-white/15 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                        autoFocus
+                      />
+
+                      <button
+                        type="button"
+                        onClick={handleAddNewCategory}
+                        disabled={!newCatName.trim()}
+                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 text-xs font-black transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1 shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Criar</span>
+                      </button>
+                    </div>
+
+                    {/* Icon Picker Grid */}
+                    {showIconPicker && (
+                      <div className="pt-2 border-t border-white/10 space-y-1.5">
+                        <span className="text-[11px] text-slate-400 block font-mono">
+                          Escolha o ícone / emoji para esta categoria:
+                        </span>
+                        <div className="grid grid-cols-8 sm:grid-cols-10 gap-1.5 max-h-32 overflow-y-auto p-1 bg-black/30 rounded-xl border border-white/5">
+                          {(formType === 'income' ? INCOME_CATEGORY_ICONS : EXPENSE_CATEGORY_ICONS).map((icon) => (
+                            <button
+                              key={icon}
+                              type="button"
+                              onClick={() => {
+                                setNewCatIcon(icon);
+                                setShowIconPicker(false);
+                              }}
+                              className={`h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
+                                newCatIcon === icon
+                                  ? 'bg-cyan-500/30 border-2 border-cyan-400 scale-110 shadow-md'
+                                  : 'bg-white/5 hover:bg-white/15 border border-white/10'
+                              }`}
+                            >
+                              {icon}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Edit Icon for Existing Category */}
+                {editingCatIconFor && (
+                  <div className="p-3 mb-2 rounded-2xl bg-slate-900 border border-amber-400/40 space-y-2 animate-fade-in shadow-xl">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-amber-300">
+                        Alterar ícone da categoria "{editingCatIconFor}":
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingCatIconFor(null)}
+                        className="text-slate-400 hover:text-white text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-8 sm:grid-cols-10 gap-1.5 max-h-28 overflow-y-auto p-1 bg-black/30 rounded-xl border border-white/5">
+                      {(formType === 'income' ? INCOME_CATEGORY_ICONS : EXPENSE_CATEGORY_ICONS).map((icon) => (
+                        <button
+                          key={icon}
+                          type="button"
+                          onClick={() => {
+                            setCategoryIcon(editingCatIconFor, icon);
+                            setEditingCatIconFor(null);
+                          }}
+                          className="h-8 rounded-lg bg-white/5 hover:bg-amber-400/20 border border-white/10 hover:border-amber-400 text-base flex items-center justify-center transition-all"
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Categories Pills */}
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1">
                   {(formType === 'income' ? incomeCategories : expenseCategories).map((cat) => {
                     const style = getCategoryMeta(cat, categoryIcons);
                     const isSelected = formCategory === cat;
                     return (
-                      <button
+                      <div
                         key={cat}
-                        type="button"
-                        onClick={() => setFormCategory(cat)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1 ${
+                        className={`inline-flex items-center rounded-xl border transition-all text-xs font-semibold ${
                           isSelected
-                            ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300'
+                            ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 shadow-sm'
                             : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/30'
                         }`}
                       >
-                        <span>{style.emoji}</span>
-                        <span>{cat}</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCatIconFor(editingCatIconFor === cat ? null : cat);
+                          }}
+                          className="pl-2.5 pr-1 py-1.5 hover:scale-125 transition-transform"
+                          title="Clique para mudar o ícone desta categoria"
+                        >
+                          <span className="text-sm">{style.emoji}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setFormCategory(cat)}
+                          className="pr-3 pl-1 py-1.5 text-left"
+                        >
+                          <span>{cat}</span>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
