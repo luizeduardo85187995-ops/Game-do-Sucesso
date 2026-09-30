@@ -20,14 +20,18 @@ import { CATEGORY_COLORS, getCategoryMeta } from '../../data/categories';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { Crown, Lock, ShieldCheck, Check, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { exportExcelWithCharts, exportCSVForExcel } from '../../services/spreadsheetExportService';
+import SpreadsheetModal from './SpreadsheetModal';
 
 export default function ReportsScreen() {
   const { user } = useAuth();
   const { isPro, openProModal } = useSubscription();
-  const { transactions, metrics, savingGoals, bankAccounts, investments, goals, categoryIcons } = useFinance();
+  const { transactions, metrics, savingGoals, bankAccounts, investments, goals, categoryIcons, expenseCategories, incomeCategories } = useFinance();
   const [activeChartType, setActiveChartType] = useState<'categories' | 'monthly' | 'distribution'>('categories');
   const [filterPeriod, setFilterPeriod] = useState<'all' | '3m' | '6m'>('all');
   const [isExporting, setIsExporting] = useState(false);
+  const [showSpreadsheetModal, setShowSpreadsheetModal] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   // Group expenses by category
   const expenseByCategory: Record<string, number> = {};
@@ -98,31 +102,29 @@ export default function ReportsScreen() {
     }, 250);
   };
 
-  // CSV export
+  // Excel (.xlsx) export with charts and multiple sheets
+  const handleExportExcel = async () => {
+    if (!isPro) {
+      openProModal();
+      return;
+    }
+    setIsExportingExcel(true);
+    try {
+      await exportExcelWithCharts(transactions, bankAccounts, expenseCategories, incomeCategories);
+    } catch (e) {
+      console.error('Erro ao exportar Excel:', e);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  // CSV export formatado para Excel Brasil com ponto-e-vírgula e UTF-8 BOM
   const handleExportCSV = () => {
     if (!isPro) {
       openProModal();
       return;
     }
-    const headers = ['Data', 'Tipo', 'Categoria', 'Valor', 'Conta', 'Observação'];
-    const rows = transactions.map((t) => [
-      t.date ? formatDateBR(t.date) : '',
-      t.type === 'income' ? 'Receita' : 'Despesa',
-      t.category,
-      t.amount.toFixed(2),
-      bankAccounts.find((b) => b.id === t.bankAccountId)?.bankName || 'Geral',
-      `"${(t.note || '').replace(/"/g, '""')}"`,
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `relatorio_financeiro_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportCSVForExcel(transactions, bankAccounts);
   };
 
   // SVG Donut calculation
@@ -174,11 +176,24 @@ export default function ReportsScreen() {
           {/* Action Buttons */}
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
-              onClick={handleExportCSV}
-              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+              onClick={() => setShowSpreadsheetModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-emerald-500/25"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Planilha com Gráficos</span>
+              <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 ml-0.5">
+                NOVO
+              </span>
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              disabled={isExportingExcel}
+              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-emerald-500/30 text-xs font-bold text-emerald-300 flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+              title="Baixar em formato Excel nativo (.xlsx) com abas e gráficos"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-              <span>Exportar CSV</span>
+              <span>{isExportingExcel ? 'Gerando...' : 'Baixar .XLSX'}</span>
               {!isPro && (
                 <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 ml-0.5">
                   PRO
@@ -187,12 +202,21 @@ export default function ReportsScreen() {
             </button>
 
             <button
+              onClick={handleExportCSV}
+              className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+              title="Exportar em formato CSV com ponto-e-vírgula compatível com Excel Brasil"
+            >
+              <Download className="w-3.5 h-3.5 text-cyan-400" />
+              <span>CSV (Brasil)</span>
+            </button>
+
+            <button
               onClick={handleExportPDF}
               disabled={isExporting}
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs flex items-center gap-2 transition active:scale-95 shadow-lg shadow-cyan-500/25"
             >
               <Printer className="w-4 h-4" />
-              <span>{isExporting ? 'Preparando...' : 'Exportar Relatório em PDF'}</span>
+              <span>{isExporting ? 'Preparando...' : 'Relatório PDF'}</span>
               {!isPro && (
                 <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 ml-0.5 shadow">
                   PRO
@@ -984,6 +1008,12 @@ export default function ReportsScreen() {
           </p>
         </div>
       </div>
+
+      {/* Modal de Planilha com Gráficos e Exportação Avançada */}
+      <SpreadsheetModal
+        isOpen={showSpreadsheetModal}
+        onClose={() => setShowSpreadsheetModal(false)}
+      />
     </>
   );
 }

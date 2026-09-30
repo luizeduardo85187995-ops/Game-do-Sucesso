@@ -24,11 +24,13 @@ import {
   Compass,
   Edit2,
   Calendar,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
 import { CATEGORY_COLORS, getCategoryMeta } from '../../data/categories';
 import SmartQuickLauncher from './SmartQuickLauncher';
+import SpreadsheetModal from './SpreadsheetModal';
 import { useAuth } from '../../context/AuthContext';
 import { GoogleLogo } from '../icons/GoogleLogo';
 import { useSettings } from '../../context/SettingsContext';
@@ -64,6 +66,7 @@ export default function OverviewScreen({
   const isLight = theme === 'pro_light';
 
   const [editingGoal, setEditingGoal] = useState<SavingGoal | null>(null);
+  const [showSpreadsheetModal, setShowSpreadsheetModal] = useState(false);
 
   const activeGoal = savingGoals.find((g) => g.id === activeGoalId) || savingGoals[0];
   const goalPercent = activeGoal
@@ -299,6 +302,19 @@ export default function OverviewScreen({
           >
             <Compass className="w-4 h-4" />
             <span>Jornada da Meta</span>
+          </button>
+          <button
+            onClick={() => setShowSpreadsheetModal(true)}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 border ${
+              isLight
+                ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                : 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/40 text-emerald-300'
+            }`}
+            title="Abrir planilha com gráficos e exportar para Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <span className="hidden sm:inline">Planilha com Gráficos</span>
+            <span className="sm:hidden">Planilha</span>
           </button>
         </div>
       </div>
@@ -802,6 +818,12 @@ export default function OverviewScreen({
           formatCurrency={formatBRL}
         />
       )}
+
+      {/* Modal de Planilha com Gráficos */}
+      <SpreadsheetModal
+        isOpen={showSpreadsheetModal}
+        onClose={() => setShowSpreadsheetModal(false)}
+      />
     </div>
   );
 }

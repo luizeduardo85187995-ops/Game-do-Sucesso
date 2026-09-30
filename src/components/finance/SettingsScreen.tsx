@@ -38,6 +38,7 @@ import { useSettings, AppTheme, AppCurrency } from '../../context/SettingsContex
 import { useFinance } from '../../context/FinanceContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { exportExcelWithCharts, exportCSVForExcel } from '../../services/spreadsheetExportService';
 import { formatBRL, formatDateBR } from '../../utils/format';
 import CustomAdsAdminPanel from '../admin/CustomAdsAdminPanel';
 
@@ -94,6 +95,8 @@ export default function SettingsScreen({
     investments,
     savingGoals,
     metrics,
+    expenseCategories,
+    incomeCategories,
     exportAllData,
     importAllData,
     resetAllData,
@@ -213,30 +216,22 @@ export default function SettingsScreen({
         alert('Não há transações cadastradas para exportar.');
         return;
       }
-
-      const headers = ['ID', 'Data', 'Tipo', 'Categoria', 'Valor (R$)', 'Conta/Banco', 'Observações'];
-      const rows = transactions.map((t) => [
-        t.id,
-        formatDateBR(t.date),
-        t.type === 'income' ? 'Receita' : 'Despesa',
-        `"${(t.category || '').replace(/"/g, '""')}"`,
-        t.amount.toFixed(2).replace('.', ','),
-        `"${(t.bankAccountId || 'Principal').replace(/"/g, '""')}"`,
-        `"${(t.note || '').replace(/"/g, '""')}"`,
-      ]);
-
-      const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `extrato-transacoes-${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      exportCSVForExcel(transactions, bankAccounts);
     } catch (e) {
       console.error('CSV export error:', e);
+    }
+  };
+
+  // Handler: Export Excel (.xlsx) with charts and tabs
+  const handleExportExcel = async () => {
+    try {
+      if (transactions.length === 0) {
+        alert('Não há transações cadastradas para exportar.');
+        return;
+      }
+      await exportExcelWithCharts(transactions, bankAccounts, expenseCategories, incomeCategories);
+    } catch (e) {
+      console.error('Excel export error:', e);
     }
   };
 
@@ -788,13 +783,23 @@ export default function SettingsScreen({
                 </p>
               </div>
 
-              <button
-                onClick={handleExportCSV}
-                className="w-full py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 font-mono font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>BAIXAR EXTRATO (.CSV)</span>
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleExportExcel}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 font-mono font-black text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-emerald-500/20"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>BAIXAR EXCEL (.XLSX) COM GRÁFICOS</span>
+                </button>
+
+                <button
+                  onClick={handleExportCSV}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-mono font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>BAIXAR CSV (EXCEL BRASIL)</span>
+                </button>
+              </div>
             </div>
           </div>
 

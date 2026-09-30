@@ -29,9 +29,10 @@ export function todayISO(): string {
 
 export function formatDateBR(iso: string): string {
   if (!iso) return '';
-  const [y, m, d] = iso.split('-');
+  const cleanIso = iso.includes('T') ? iso.split('T')[0] : iso.split(' ')[0];
+  const [y, m, d] = cleanIso.split('-');
   if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
+  return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
 }
 
 export function monthKey(iso: string): string {
