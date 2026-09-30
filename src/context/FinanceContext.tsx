@@ -510,10 +510,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     const balance = bankBalance - creditCardDebt;
     const savingsRate = monthIncome > 0 ? Math.max(0, Math.min(100, (monthNet / monthIncome) * 100)) : 0;
 
-    // Despesas futuras / próximo mês que comprometem o saldo atual
-    const committedExpenses = futureExpenses > 0 ? futureExpenses : nextMonthExpenses;
-    const projectedBalance = balance - committedExpenses;
-    const realFreeBalance = Math.max(0, projectedBalance);
+    // As transações já abateram o saldo bancário ao serem cadastradas.
+    // Portanto, o balance (ex: R$ 206,00) JÁ É o saldo líquido final que sobra após abater todas as despesas lançadas!
+    const realFreeBalance = balance;
+    const projectedBalance = balance;
 
     return {
       balance,

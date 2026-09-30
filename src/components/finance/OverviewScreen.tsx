@@ -310,22 +310,22 @@ export default function OverviewScreen({
       {metrics.futureExpenses > 0 && (
         <div className={`rounded-2xl p-4 border flex items-start sm:items-center gap-3.5 transition-all ${
           isLight
-            ? 'bg-amber-50/90 border-amber-200/90 text-amber-950 shadow-sm'
-            : 'bg-amber-500/10 border-amber-500/30 text-amber-200 shadow-lg shadow-amber-500/5'
+            ? 'bg-emerald-50/90 border-emerald-200/90 text-emerald-950 shadow-sm'
+            : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200 shadow-lg shadow-emerald-500/5'
         }`}>
-          <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-            <Calendar className="w-5 h-5 text-amber-500" />
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           </div>
           <div className="flex-1 text-xs leading-relaxed">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-sm">Planejamento Preventivo Ativo</span>
+              <span className="font-bold text-sm">Contas Futuras Já Descontadas</span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                isLight ? 'bg-amber-100 text-amber-800' : 'bg-amber-400/20 text-amber-300'
+                isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-400/20 text-emerald-300'
               }`}>
-                Próximo Mês
+                Próximo Mês Seguro
               </span>
             </div>
-            Você cadastrou <strong>{formatBRL(metrics.futureExpenses)}</strong> em despesas futuras. Seu saldo em conta (<strong>{formatBRL(metrics.balance)}</strong>) já está reservado para cobrir esses compromissos, restando <strong>{formatBRL(metrics.projectedBalance)}</strong> de saldo livre projetado.
+            Você cadastrou <strong>{formatBRL(metrics.futureExpenses)}</strong> em despesas que já foram abatidas do seu saldo bancário. O seu saldo atual de <strong>{formatBRL(metrics.balance)}</strong> é exatamente o que sobrou líquido e livre!
           </div>
         </div>
       )}
@@ -338,7 +338,7 @@ export default function OverviewScreen({
             <span className={`text-[11px] font-bold uppercase tracking-wider ${
               isLight ? 'text-slate-500' : 'text-slate-400'
             }`}>
-              Saldo em Contas
+              Saldo Livre em Contas
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
               isLight
@@ -355,11 +355,9 @@ export default function OverviewScreen({
           </div>
           {metrics.futureExpenses > 0 ? (
             <div className={`text-[10px] mt-1 font-mono flex items-center gap-1 font-semibold ${
-              metrics.projectedBalance < 0
-                ? isLight ? 'text-rose-600' : 'text-rose-400'
-                : isLight ? 'text-amber-700' : 'text-amber-400'
+              isLight ? 'text-emerald-700' : 'text-emerald-400'
             }`}>
-              <span>Comprometido: {formatBRL(metrics.futureExpenses)}</span>
+              <span>Livre após abater {formatBRL(metrics.futureExpenses)}</span>
             </div>
           ) : (
             <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${
@@ -457,13 +455,7 @@ export default function OverviewScreen({
           <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${
             isLight ? 'text-slate-500' : 'text-slate-400'
           }`}>
-            {metrics.futureExpenses > 0 ? (
-              <span className={`text-[10px] ${isLight ? 'text-amber-700 font-semibold' : 'text-amber-400 font-semibold'}`}>
-                Saldo Livre Projetado: <strong>{formatBRL(metrics.projectedBalance)}</strong>
-              </span>
-            ) : (
-              <span>Taxa de Poupança: <strong className={`font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>{metrics.savingsRate.toFixed(0)}%</strong></span>
-            )}
+            <span>Taxa de Poupança: <strong className={`font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>{metrics.savingsRate.toFixed(0)}%</strong></span>
           </div>
         </div>
       </div>

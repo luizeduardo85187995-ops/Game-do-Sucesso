@@ -63,20 +63,14 @@ SEU PÚBLICO E SUA MISSÃO:
 • Sua missão principal NÃO é vender teorias econômicas. Sua missão é AJUDAR A PESSOA A MUDAR DE HÁBITOS, dar o primeiro passo, recuperar o controle da vida financeira e encontrar paz e tranquilidade com o dinheiro.
 • Você NUNCA julga, NUNCA dá bronca e NUNCA faz a pessoa se sentir culpada ou envergonhada. Todo mundo já se enrolou com dinheiro; o importante é o que fazemos hoje.
 
-REGRA DE OURO: SALDO REAL vs ENTRADAS DO MÊS vs DESPESAS FUTURAS:
-1. DISTINÇÃO FUNDAMENTAL: NUNCA confunda "Entradas do Mês" com "Dinheiro que Sobrou na Conta"!
-   - Se o usuário registrou uma entrada de R$ 1.100 este mês, mas o saldo em conta dele hoje é de apenas R$ 206,00, NÃO SOBROU R$ 1.100! O saldo real que ele tem na mão é R$ 206,00. O restante dos R$ 1.100 já foi utilizado, pago ou absorvido.
-2. DESPESAS DO PRÓXIMO MÊS E DESPESAS FUTURAS (PLANEJAMENTO ANTECIPADO):
-   - Se o usuário já cadastrou despesas para o próximo mês (ou contas agendadas), elogie muito essa atitude! Lançar contas futuras com antecedência é a melhor estratégia de organização preventiva.
-   - Reconheça com total clareza: na prática, o saldo que a pessoa tem na conta hoje (ex: R$ 206) é exatamente o que será usado para pagar essas despesas futuras!
-   - Portanto, esse dinheiro NÃO está livre nem "sobrando". Se a pessoa tem R$ 206 na conta e contas futuras já cadastradas, o saldo dela já está 100% comprometido.
-   - NUNCA diga para uma pessoa nessas condições mandar dinheiro para a meta de investimentos ou gastar achando que "sobrou 1.100".
-3. SE O USUÁRIO PERGUNTAR POR QUE ANTES DISSE "SOBROU 1.100" OU QUESTIONAR O ERRO:
-   - Explique com humildade, empatia e sem rodeios:
-     a) O sistema calculou o resultado contábil do mês corrente (Receitas de R$ 1.100 menos Despesas datadas neste mês = R$ 1.100) e usou a palavra "sobra" de forma equivocada.
-     b) Porém, na vida real da pessoa, o que manda é o SALDO REAL EM CONTA (R$ 206) e as CONTAS JÁ AGENDADAS PARA O PRÓXIMO MÊS.
-     c) O usuário está COBERTO DE RAZÃO: as despesas futuras já consom o saldo atual que ele tem. Não tem R$ 1.100 sobrando.
-     d) Dê os parabéns ao usuário por ter essa visão preventiva inteligente, e trace com ele o plano para proteger os R$ 206 para garantir as contas do início do mês.
+REGRA DE OURO SOBRE O SALDO DO USUÁRIO E DESPESAS LANÇADAS:
+1. COMO FUNCIONA O SALDO NO SISTEMA:
+   - Toda despesa lançada pelo usuário (mesmo com vencimento no próximo mês) JÁ É AUTOMATICAMENTE ABATIDA do saldo da conta bancária!
+   - Portanto, o SALDO EM CONTA que aparece no sistema (ex: R$ 206,00) JÁ É O VALOR LÍQUIDO QUE SOBRA LIVRE após abater todas as contas cadastradas!
+   - NUNCA subtraia novamente as despesas do saldo! Isso geraria uma "dupla dedução" absurda (ex: 206 - 3594 = -3388), fazendo parecer que a pessoa está endividada ou que ainda precisa arranjar dinheiro para pagar essas despesas, quando na verdade essas contas já foram abatidas e o saldo de R$ 206 é o que SOBRA limpo!
+2. O QUE EXPLICAR SE O USUÁRIO PERGUNTAR:
+   - Diga com total firmeza, clareza e acolhimento: "Fique 100% tranquilo! O seu saldo de R$ 206,00 já é o que te sobrou limpo e livre após abater as contas do próximo mês (R$ 3.594,00) que você cadastrou. Essas despesas já foram descontadas do seu saldo bancário no momento do lançamento. Você não tem que arranjar mais R$ 3.000 para pagar nada: essas contas já estão garantidas e descontadas, e esses R$ 206,00 são a sua folga real restante!"
+   - Elogie o usuário pelo planejamento antecipado: ele lançou as despesas futuras com antecedência e agora sabe exatamente que, depois de tudo pago, sobram R$ 206,00 livres na mão.
 
 DIRETRIZES DE LINGUAGEM E DIDÁTICA (ZERO FINANCÊS):
 1. Use Português do Brasil natural, caloroso, simples e direto.
@@ -98,7 +92,7 @@ ESTRATÉGIAS COMPORTAMENTAIS PRÁTICAS:
 
 COMO RESPONDER:
 • Comece com empatia ou reconhecimento positivo do esforço da pessoa.
-• Analise os dados reais do usuário (saldo real em conta, despesas futuras agendadas, metas) de forma simples e humana.
+• Analise os dados reais do usuário (saldo real em conta, contas já abatidas, metas) de forma simples e humana.
 • Dê no máximo 2 ou 3 passos práticos e fáceis de aplicar ainda hoje (Passo 1, Passo 2, Passo 3).
 • Conecte com a "Jornada da Meta" para animar o usuário a escalar a montanha e comemorar pequenas vitórias.
 • Formate com negritos nos pontos-chave e emojis amigáveis (💡, 🎯, 🚀, 🛡️, 👏, 💰).
@@ -114,7 +108,7 @@ function buildSystemPrompt(context: FinanceContextData): string {
   const todayStr = new Date().toISOString().slice(0, 10);
   const currentMonthKey = todayStr.slice(0, 7);
 
-  // Separa transações por período (deste mês vs futuras)
+  // Separa transações por período
   const currentMonthExpenses: typeof context.transactions = [];
   const futureExpensesList: typeof context.transactions = [];
   const expenseByCategory: Record<string, number> = {};
@@ -156,14 +150,14 @@ function buildSystemPrompt(context: FinanceContextData): string {
     })
     .join('\n');
 
-  // Detalhes das despesas futuras agendadas
+  // Detalhes das despesas já abatidas
   const futureExpensesSummary = futureExpensesList
     .slice(0, 5)
     .map((t) => {
       const [y, m, d] = t.date.split('-');
       const dateBR = d && m ? `${d}/${m}` : t.date;
       const note = t.note ? ` ("${t.note}")` : '';
-      return `• [Prevista para ${dateBR}] ${t.category}: ${formatBRL(t.amount)}${note}`;
+      return `• [Já abatida - data ${dateBR}] ${t.category}: ${formatBRL(t.amount)}${note}`;
     })
     .join('\n');
 
@@ -179,37 +173,31 @@ function buildSystemPrompt(context: FinanceContextData): string {
   // Diagnóstico realista e humanizado para o Dante
   const balance = context.balance;
   const monthIncome = context.monthIncome;
-  const monthExpense = context.monthExpense;
-  const committedFuture = totalFutureExpenses || context.futureExpenses || 0;
-  const projectedBalance = balance - committedFuture;
+  const futureDeducted = totalFutureExpenses || context.futureExpenses || 0;
 
   let statusHumano = '';
   if (context.transactions.length === 0) {
     statusHumano = 'Usuário novo, ainda não lançou receitas ou despesas.';
-  } else if (committedFuture > 0) {
-    statusHumano = `ALERTA DE COMPROMISSO REAL: O usuário tem saldo de ${formatBRL(balance)} em conta, mas já cadastrou ${formatBRL(committedFuture)} em despesas futuras (para o próximo mês). Na vida real, o saldo atual já está comprometido para pagar essas contas! Não há folga livre de ${formatBRL(monthIncome)}. Saldo projetado após contas: ${formatBRL(projectedBalance)}.`;
-  } else if (balance < context.monthNet) {
-    statusHumano = `ALERTA DE SALDO: Entraram ${formatBRL(monthIncome)} no mês, mas o saldo real em conta é de ${formatBRL(balance)} (o restante já foi gasto ou pago). Não sobrou ${formatBRL(context.monthNet)}! O dinheiro disponível na mão hoje é de ${formatBRL(balance)}.`;
-  } else if (context.monthNet > 0 && balance > 0) {
-    statusHumano = `Saldo em conta de ${formatBRL(balance)} e resultado do mês positivo em +${formatBRL(context.monthNet)}. Se não houver contas futuras agendadas, pode separar um valor seguro para a meta.`;
-  } else if (context.monthNet < 0 || balance < 0) {
-    statusHumano = `Conta apertada ou no vermelho (${formatBRL(balance)} em conta). Precisa de acolhimento e foco em segurar gastos essenciais.`;
+  } else if (futureDeducted > 0 && balance > 0) {
+    statusHumano = `SITUAÇÃO POSITIVA E PLANEJADA: O usuário já lançou e abateu ${formatBRL(futureDeducted)} em despesas (inclusive do próximo mês) do saldo bancário, e ainda restam ${formatBRL(balance)} livres e desimpedidos na conta! Não há nenhum déficit ou dívida pendente dessas contas: elas já foram computadas e o saldo restante de ${formatBRL(balance)} é a sobra limpa dele.`;
+  } else if (balance > 0) {
+    statusHumano = `Saldo positivo e livre de ${formatBRL(balance)} nas contas.`;
+  } else if (balance < 0) {
+    statusHumano = `Saldo negativo de ${formatBRL(balance)}. Precisa de acolhimento e passos simples para estancar despesas supérfluas sem desespero.`;
   } else {
-    statusHumano = `Equilíbrio entre entradas e saídas. Saldo em conta: ${formatBRL(balance)}.`;
+    statusHumano = `Saldo zerado nas contas.`;
   }
 
   const contextText = `
 DIAGNÓSTICO FINANCEIRO REAL:
-- Saldo REAL em contas hoje: ${formatBRL(balance)} (o que realmente existe no banco)
-- Quanto entrou com data deste mês: ${formatBRL(monthIncome)}
-- Quanto saiu com data deste mês: ${formatBRL(monthExpense)}
-- Despesas futuras já agendadas (próximo mês): ${formatBRL(committedFuture)} ${committedFuture > 0 ? '(CONTA REALMENTE COMPROMETIDA!)' : ''}
-- Saldo Livre Projetado (Saldo menos despesas futuras): ${formatBRL(projectedBalance)}
-- Leitura da Situação: ${statusHumano}
-- Total em investimentos: ${context.investedTotal > 0 ? formatBRL(context.investedTotal) : 'Zero investido ainda (iniciante total)'}
+- Saldo REAL LIVRE nas contas hoje: ${formatBRL(balance)} (JÁ É O DINHEIRO LIMPO que sobra após abater todas as despesas lançadas, inclusive as do próximo mês!)
+- Despesas que já abateram o saldo (próximo mês / futuras): ${formatBRL(futureDeducted)} (já foram 100% descontadas das contas; o usuário NÃO precisa pagar nada a mais além disso)
+- Entradas registradas este mês: ${formatBRL(monthIncome)}
+- Situação Geral: ${statusHumano}
+- Total em investimentos: ${context.investedTotal > 0 ? formatBRL(context.investedTotal) : 'Zero investido ainda'}
 
-DESPESAS FUTURAS AGENDADAS (QUE CONSOMEM O SALDO ATUAL):
-${futureExpensesSummary || '• Nenhuma despesa futura agendada além do mês atual.'}
+DESPESAS QUE JÁ FORAM DEDUZIDAS DO SALDO:
+${futureExpensesSummary || '• Nenhuma despesa futura além do mês atual.'}
 
 MAIORES GASTOS RECENTES DESTE MÊS POR CATEGORIA:
 ${sortedCategories || '• Nenhuma despesa registrada neste mês.'}
@@ -284,27 +272,23 @@ export async function callPollinationsAI(
 }
 
 /**
- * Fallback amigável e inteligente baseado no Saldo Real e Despesas Futuras caso a API caia
+ * Fallback amigável e inteligente baseado no Saldo Real caso a API caia
  */
 function getSmartLocalFallback(context: FinanceContextData): string {
   const formatBRL = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-  const committedFuture = context.nextMonthExpenses || context.futureExpenses || 0;
+  const futureDeducted = context.nextMonthExpenses || context.futureExpenses || 0;
 
-  if (committedFuture > 0) {
-    return `Oi! Tô aqui de prontidão 🐾\n\nAnalisei suas contas: seu saldo em conta é de **${formatBRL(context.balance)}**, mas você já tem **${formatBRL(committedFuture)}** agendados em despesas para o próximo mês.\n\n💡 **Visão realista do Dante:** Você fez certinho em lançar essas despesas futuras com antecedência! O seu saldo atual é o que vai cobrir essas contas, por isso esse dinheiro já está comprometido. O foco agora é proteger cada centavo até as contas caírem!\n\nMe diga: quer que a gente revise essas despesas futuras para garantir que tudo fique em ordem?`;
+  if (futureDeducted > 0 && context.balance > 0) {
+    return `Oi! Tô aqui de prontidão 🐾\n\nAnalisei suas contas com total clareza: você já cadastrou **${formatBRL(futureDeducted)}** em despesas (inclusive do próximo mês) que já foram abatidas do seu saldo, e você ainda tem **${formatBRL(context.balance)} livres e desimpedidos** sobrando na sua conta!\n\n💡 **Fique 100% em paz:** Você não precisa arranjar dinheiro extra para essas contas cadastradas porque elas já foram descontadas. Os **${formatBRL(context.balance)}** são a sua sobra limpa e real!\n\nComo posso te ajudar a planejar o uso dessa sobra hoje?`;
   }
 
-  if (context.balance < context.monthNet) {
-    return `Oi! Tô aqui de prontidão 🐾\n\nVi que entraram **${formatBRL(context.monthIncome)}** no mês, mas o seu saldo real em conta hoje é de **${formatBRL(context.balance)}**.\n\n💡 **Visão realista do Dante:** Na prática, o que você tem na mão são esses **${formatBRL(context.balance)}**. Vamos cuidar desse saldo com carinho para não apertar nos próximos dias. Como posso te apoiar agora?`;
+  if (context.balance > 0) {
+    return `Oi! Tô por aqui 🐾\n\nSeu saldo em conta está positivo e livre em **${formatBRL(context.balance)}**.\n\nQue tal separar uma pequena parte (R$ 10 ou R$ 20) para subir mais um passo na sua meta da montanha? Me conte como prefere conduzir!`;
   }
 
-  if (context.monthNet > 0 && context.balance > 0) {
-    return `Oi! Tô por aqui 🐾\n\nSeu saldo em conta está em **${formatBRL(context.balance)}** e o mês está favorável com **${formatBRL(context.monthNet)}** de fluxo positivo.\n\nSe você não tiver contas para o início do próximo mês, que tal colocar uma pequena fatia (R$ 10 ou R$ 20) na sua meta para subir mais um passo na montanha? Me conte o que você prefere fazer!`;
-  }
-
-  return `Oi! Tô por aqui 🐾\n\nSeu saldo em conta está em **${formatBRL(context.balance)}**. Em momentos mais justos, o mais importante é não se desesperar: a gente dá um passo de cada vez para estancar gastos desnecessários.\n\nQual conta ou gasto está tirando mais o seu sono hoje? Vamos desatar esse nó juntos!`;
+  return `Oi! Tô por aqui 🐾\n\nSeu saldo em conta está em **${formatBRL(context.balance)}**. Vamos dar um passo de cada vez para manter tudo organizado e com calma.\n\nQual conta ou dúvida está no seu radar agora?`;
 }
 
 /**
