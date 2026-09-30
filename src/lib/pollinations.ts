@@ -90,13 +90,16 @@ ESTRATÉGIAS COMPORTAMENTAIS PRÁTICAS:
 5. Estratégia para Dívidas: Focar em parar de usar o rotativo do cartão e cheque especial (que têm juros abusivos), renegociar com desconto e pagar uma de cada vez (método bola de neve).
 6. Se a pessoa tiver zero investimentos: NUNCA recomende ações ou FIIs de cara. O primeiro passo dela é montar uma pequena reserva em um lugar 100% seguro (Tesouro Selic ou CDB com liquidez diária do próprio banco, que rende mais que a poupança e tem segurança total).
 
-COMO RESPONDER:
+COMO RESPONDER E EXECUTAR:
+• VOCÊ É UM AGENTE AUTOMÁTICO E ULTRA INTELIGENTE: Quando o usuário te pedir para lançar algo (ex: "lança 150 de internet", "gastei 45 no almoço", "recebi 2500"), trate a ação como AUTOMATICAMENTE EXECUTADA! Confirme a categoria, valor, data e o novo saldo livre em conta.
+• SE O USUÁRIO PERGUNTAR "QUANTO POSSO GASTAR POR DIA?": Pegue o Saldo Real Livre na conta, divida pelos dias que faltam até o fim do mês/virada, e informe o limite diário seguro exato (ex: "Você tem R$ 206 livres. Faltando 5 dias, seu limite seguro é de R$ 41,20 por dia").
+• SE PERGUNTAR SOBRE RALOS INVISÍVEIS: Destaque as maiores categorias de despesa do mês atual e sugira 1 corte inteligente sem sacrifício.
 • Comece com empatia ou reconhecimento positivo do esforço da pessoa.
 • Analise os dados reais do usuário (saldo real em conta, contas já abatidas, metas) de forma simples e humana.
 • Dê no máximo 2 ou 3 passos práticos e fáceis de aplicar ainda hoje (Passo 1, Passo 2, Passo 3).
 • Conecte com a "Jornada da Meta" para animar o usuário a escalar a montanha e comemorar pequenas vitórias.
-• Formate com negritos nos pontos-chave e emojis amigáveis (💡, 🎯, 🚀, 🛡️, 👏, 💰).
-• Respostas concisas, humanas e motivadoras (entre 120 e 200 palavras).
+• Formate com negritos nos pontos-chave e emojis amigáveis (💡, 🎯, 🚀, 🛡️, 👏, 💰, ⚡).
+• Respostas concisas, humanas e motivadoras (entre 120 e 220 palavras).
 
 CONTEXTO REAL DO USUÁRIO AGORA:
 {FINANCE_CONTEXT}`;
@@ -188,11 +191,19 @@ function buildSystemPrompt(context: FinanceContextData): string {
     statusHumano = `Saldo zerado nas contas.`;
   }
 
+  // Cálculo de dias restantes e limite diário seguro
+  const now = new Date();
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysRemaining = Math.max(1, lastDayOfMonth - now.getDate() + 1);
+  const safeDailySpend = balance > 0 ? balance / daysRemaining : 0;
+
   const contextText = `
 DIAGNÓSTICO FINANCEIRO REAL:
 - Saldo REAL LIVRE nas contas hoje: ${formatBRL(balance)} (JÁ É O DINHEIRO LIMPO que sobra após abater todas as despesas lançadas, inclusive as do próximo mês!)
 - Despesas que já abateram o saldo (próximo mês / futuras): ${formatBRL(futureDeducted)} (já foram 100% descontadas das contas; o usuário NÃO precisa pagar nada a mais além disso)
 - Entradas registradas este mês: ${formatBRL(monthIncome)}
+- Dias restantes até o fim do mês: ${daysRemaining} dias
+- LIMITE DIÁRIO SEGURO (CALCULADO): ${formatBRL(safeDailySpend)} por dia (se gastar até esse valor diário, fecha o mês no positivo!)
 - Situação Geral: ${statusHumano}
 - Total em investimentos: ${context.investedTotal > 0 ? formatBRL(context.investedTotal) : 'Zero investido ainda'}
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Bot,
   Send,
@@ -11,23 +11,66 @@ import {
   ShieldCheck,
   AlertCircle,
   HelpCircle,
+  CheckCircle2,
+  Undo2,
+  Calendar,
+  Building2,
+  Tag,
+  ArrowUpRight,
+  ArrowDownRight,
+  Clock,
+  Flame,
+  Zap,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { callPollinationsAI, buildHistory, ChatMessage } from '../../lib/pollinations';
-import { formatBRL } from '../../utils/format';
+import { formatBRL, formatDateBR } from '../../utils/format';
 import { useSubscription } from '../../context/SubscriptionContext';
 import ProFeatureLock from '../subscription/ProFeatureLock';
+import { getCategoryMeta } from '../../data/categories';
+import {
+  extractTransactionIntent,
+  calculateSafeDailyBudget,
+  auditTopExpenseLeaks,
+  DanteActionExecuted,
+} from '../../services/danteAgentService';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  actionExecuted?: {
+    id: string;
+    type: 'income' | 'expense';
+    amount: number;
+    category: string;
+    date: string;
+    bankName: string;
+    note: string;
+    undone?: boolean;
+  };
+  budgetCard?: {
+    dailyBudget: number;
+    daysRemaining: number;
+    status: 'safe' | 'tight' | 'negative';
+  };
 }
 
 export default function AIChatScreen() {
   const { isPro } = useSubscription();
-  const { transactions, investments, savingGoals, metrics } = useFinance();
+  const {
+    transactions,
+    investments,
+    savingGoals,
+    metrics,
+    bankAccounts,
+    expenseCategories,
+    incomeCategories,
+    categoryIcons,
+    addTransaction,
+    deleteTransaction,
+  } = useFinance();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -51,6 +94,12 @@ export default function AIChatScreen() {
     savingGoals,
   };
 
+  // Preview do comando digitado ao vivo para feedback instantâneo
+  const livePreview = useMemo(() => {
+    if (!input.trim() || input.length < 3) return null;
+    return extractTransactionIntent(input, expenseCategories, incomeCategories, bankAccounts);
+  }, [input, expenseCategories, incomeCategories, bankAccounts]);
+
   // Initial greeting with dynamic diagnostic
   useEffect(() => {
     let situacaoTexto = '';
@@ -66,14 +115,15 @@ export default function AIChatScreen() {
       situacaoTexto = `⚪ Saldo zerado nas contas.`;
     }
 
-    const futureDetails = committedFuture > 0 
-      ? `\n• 📋 Despesas já abatidas no saldo: **${formatBRL(committedFuture)}** (já descontadas das suas contas)\n• 🛡️ Saldo líquido que sobra livre: **${formatBRL(metrics.balance)}**`
-      : '';
+    const futureDetails =
+      committedFuture > 0
+        ? `\n• 📋 Despesas já abatidas no saldo: **${formatBRL(committedFuture)}** (já descontadas das suas contas)\n• 🛡️ Saldo líquido que sobra livre: **${formatBRL(metrics.balance)}**`
+        : '';
 
     const initialText =
       transactions.length === 0
-        ? `Oi! Sou o **Dante**, seu mentor e amigo financeiro aqui no **Minhas Finanças** 🐾💡\n\nEu não tô aqui pra te julgar, nem pra falar termos complicados de economia. Meu papel é te ajudar a organizar sua vida financeira no seu ritmo, sem neura e sem sofrimento.\n\n**Como posso te ajudar hoje:**\n• 🛑 **Descobrir para onde o seu dinheiro está sumindo** e fechar ralos invisíveis\n• 🛍️ **Controlar compras por impulso**, delivery e fatura de cartão\n• 🐷 **Aprender a guardar os primeiros R$ 20, R$ 50 ou R$ 100**, mesmo que nunca sobre nada\n• 🎯 **Montar uma rotina simples** pra você nunca mais ficar no aperto\n\nMe conta: qual é a sua maior dificuldade com dinheiro hoje ou o que você quer melhorar na sua rotina?`
-        : `Oi! Sou o **Dante**, seu mentor financeiro de bolso 🐾\n\nJá analisei seus dados cadastrados e aqui está o seu **Raio-X em tempo real**:\n• 💰 Saldo livre nas contas: **${formatBRL(metrics.balance)}**${futureDetails}\n• 📊 Situação real: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\nNão importa se você ganha muito ou pouco, ou se está desorganizado: a gente começa de onde você está agora. O que você gostaria de destravar hoje?`;
+        ? `Oi! Sou o **Dante**, seu mentor e parceiro inteligente aqui no **Minhas Finanças** 🐾⚡\n\nAgora sou **100% automático e proativo**: você pode conversar comigo OU pedir para eu lançar coisas diretamente aqui no chat!\n\n**O que você pode fazer:**\n• ⚡ **Lançamento Automático:** Digite *"Lança 150 de internet"*, *"Gastei 45 no almoço"* ou *"Recebi 2500 de salário"*, e eu lanço no seu extrato na hora!\n• 💵 **Limite Diário Seguro:** Me pergunte *"Quanto posso gastar por dia?"* e eu calculo sua cota diária até o fim do mês.\n• 🔍 **Auditoria de Ralos:** Me pergunte *"Onde estou gastando muito?"* e eu mostro os maiores vilões do seu orçamento.\n\nQual conta ou dúvida está no seu radar agora?`
+        : `Oi! Sou o **Dante**, seu mentor financeiro ultra inteligente 🐾⚡\n\nJá analisei suas contas em tempo real:\n• 💰 Saldo livre nas contas: **${formatBRL(metrics.balance)}**${futureDetails}\n• 📊 Situação real: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\n💡 **Comandos Automáticos:** Pode me pedir coisas como *"Lança 150 de internet"*, *"Gastei 40 no uber"*, ou perguntar *"Quanto posso gastar por dia até o fim do mês?"*! O que quer fazer agora?`;
 
     setMessages([
       {
@@ -108,6 +158,85 @@ export default function AIChatScreen() {
     if (!customPrompt) setInput('');
     setIsTyping(true);
 
+    // ==========================================================
+    // ETAPA 1: DETECÇÃO DE AÇÕES AUTOMÁTICAS (AGENTIC EXECUTION)
+    // ==========================================================
+    let actionExecutedData: Message['actionExecuted'] | undefined = undefined;
+    let budgetCardData: Message['budgetCard'] | undefined = undefined;
+    let systemInjection = '';
+
+    // A. Detecção de Lançamento Automático
+    const detectedTx = extractTransactionIntent(
+      promptToSend,
+      expenseCategories,
+      incomeCategories,
+      bankAccounts
+    );
+
+    if (detectedTx) {
+      const createdTx = addTransaction({
+        type: detectedTx.type,
+        amount: detectedTx.amount,
+        category: detectedTx.category,
+        date: detectedTx.date,
+        note: detectedTx.note,
+        bankAccountId: detectedTx.bankAccountId,
+      });
+
+      const bankObj = bankAccounts.find((b) => b.id === detectedTx.bankAccountId);
+
+      actionExecutedData = {
+        id: createdTx.id,
+        type: createdTx.type,
+        amount: createdTx.amount,
+        category: createdTx.category,
+        date: createdTx.date,
+        bankName: bankObj?.bankName || 'Conta Corrente',
+        note: createdTx.note || '',
+      };
+
+      systemInjection += `\n[COMANDO AUTOMÁTICO EXECUTADO PELO SISTEMA: O lançamento de ${
+        createdTx.type === 'income' ? 'RECEITA' : 'DESPESA'
+      } no valor de ${formatBRL(createdTx.amount)} na categoria "${
+        createdTx.category
+      }" para a data ${formatDateBR(
+        createdTx.date
+      )} JÁ FOI AUTOMATICAMENTE REGISTRADO NO BANCO DE DADOS PELO SISTEMA. Confirme alegremente ao usuário que a ação foi executada com sucesso, mencione o valor e a categoria com clareza, e mostre como isso impacta o saldo dele.]\n`;
+    }
+
+    // B. Detecção de Pergunta sobre Limite Diário Seguro
+    const normPrompt = promptToSend.toLowerCase();
+    if (
+      normPrompt.includes('quanto posso gastar') ||
+      normPrompt.includes('limite diario') ||
+      normPrompt.includes('por dia') ||
+      normPrompt.includes('posso gastar hoje')
+    ) {
+      const budgetInfo = calculateSafeDailyBudget(metrics.realFreeBalance || metrics.balance);
+      budgetCardData = {
+        dailyBudget: budgetInfo.dailyBudget,
+        daysRemaining: budgetInfo.daysRemaining,
+        status: budgetInfo.status,
+      };
+
+      systemInjection += `\n[CÁLCULO EXATO DE LIMITE DIÁRIO: Saldo livre = ${formatBRL(
+        metrics.realFreeBalance || metrics.balance
+      )}, Dias restantes = ${budgetInfo.daysRemaining}, Limite diário seguro = ${formatBRL(
+        budgetInfo.dailyBudget
+      )}/dia. Explique isso com didática e firmeza ao usuário.]\n`;
+    }
+
+    // C. Detecção de Pergunta sobre Ralos de Dinheiro
+    if (
+      normPrompt.includes('ralos') ||
+      normPrompt.includes('onde estou gastando') ||
+      normPrompt.includes('maiores gastos') ||
+      normPrompt.includes('cortar gastos')
+    ) {
+      const leaks = auditTopExpenseLeaks(transactions);
+      systemInjection += `\n[AUDITORIA DE RALOS EXECUTADA:\n${leaks.summary}\nUse exatamente esses números reais nos seus conselhos.]\n`;
+    }
+
     try {
       const history = buildHistory(
         messages
@@ -116,8 +245,12 @@ export default function AIChatScreen() {
           .map((m) => ({ role: m.role, content: m.content }))
       );
 
+      const effectivePrompt = systemInjection
+        ? `${promptToSend}\n\n${systemInjection}`
+        : promptToSend;
+
       const responseText = await callPollinationsAI(
-        promptToSend,
+        effectivePrompt,
         history.slice(0, -1),
         financeContext
       );
@@ -127,15 +260,28 @@ export default function AIChatScreen() {
         role: 'assistant',
         content: responseText,
         timestamp: new Date(),
+        actionExecuted: actionExecutedData,
+        budgetCard: budgetCardData,
       };
+
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Falha ao processar a resposta da IA.';
+      const fallbackText = actionExecutedData
+        ? `✅ **Lançamento Registrado com Sucesso!**\n\nLancei automaticamente ${
+            actionExecutedData.type === 'income' ? '🟢 Receita' : '🔴 Despesa'
+          } de **${formatBRL(actionExecutedData.amount)}** em **${
+            actionExecutedData.category
+          }** na sua conta.\n\nSeu saldo foi atualizado no sistema!`
+        : `⚠️ **Aviso:** ${errMsg}\n\nPor favor, tente novamente em instantes.`;
+
       const errorAssistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `⚠️ **Aviso:** ${errMsg}\n\nPor favor, tente novamente em instantes.`,
+        content: fallbackText,
         timestamp: new Date(),
+        actionExecuted: actionExecutedData,
+        budgetCard: budgetCardData,
       };
       setMessages((prev) => [...prev, errorAssistantMsg]);
     } finally {
@@ -150,30 +296,45 @@ export default function AIChatScreen() {
     }
   };
 
+  // Desfazer lançamento feito pelo Dante
+  const handleUndoTransaction = (messageId: string, transactionId: string) => {
+    deleteTransaction(transactionId);
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id === messageId && m.actionExecuted) {
+          return {
+            ...m,
+            actionExecuted: {
+              ...m.actionExecuted,
+              undone: true,
+            },
+          };
+        }
+        return m;
+      })
+    );
+  };
+
   const SUGGESTIONS = [
     {
-      label: '⚖️ Meu saldo aguenta as contas do próximo mês?',
-      query: 'Dá uma olhada no meu saldo real em conta e nas despesas que já lancei para o próximo mês. O meu dinheiro vai dar conta ou já está todo comprometido?',
+      label: '⚡ Lançar 150 de Internet',
+      query: 'Lança 150 de internet pra mim dia 10',
     },
     {
-      label: '🆘 Tô no vermelho, por onde começo?',
-      query: 'Tô meio enrolado com as contas e sinto que meu dinheiro não rende. Por onde eu começo a me organizar na prática sem pirar?',
+      label: '💵 Quanto posso gastar por dia?',
+      query: 'Quanto posso gastar por dia até o final do mês sem ficar no vermelho?',
+    },
+    {
+      label: '🔍 Meus 3 maiores ralos de dinheiro',
+      query: 'Dá uma olhada nos meus lançamentos e me mostra onde está indo a maior parte do meu dinheiro e onde dá pra cortar.',
+    },
+    {
+      label: '⚖️ Meu saldo aguenta as contas?',
+      query: 'Dá uma olhada no meu saldo real em conta e nas despesas já lançadas. O meu dinheiro vai dar conta com tranquilidade?',
     },
     {
       label: '🛍️ Como parar de gastar por impulso?',
-      query: 'Tenho muita dificuldade com compras por impulso, delivery e cartão de crédito. Quais hábitos fáceis você me ensina pra frear isso?',
-    },
-    {
-      label: '🔍 Analise onde estou gastando mais',
-      query: 'Dá uma olhada nos meus lançamentos e me mostra onde está indo a maior parte do meu dinheiro e onde dá pra cortar sem sofrer.',
-    },
-    {
-      label: '🐷 Como guardar meus primeiros R$ 50?',
-      query: 'Nunca sobra dinheiro no fim do mês e eu nunca investi. Qual a estratégia mais simples pra eu conseguir guardar meus primeiros R$ 50 ou R$ 100 todo mês?',
-    },
-    {
-      label: '💳 Como lidar com o cartão de crédito?',
-      query: 'Sempre me perco com a fatura do cartão de crédito. Como usar o cartão a meu favor sem me endividar todo mês?',
+      query: 'Tenho muita dificuldade com compras por impulso e delivery. Quais hábitos fáceis você me ensina pra frear isso?',
     },
     {
       label: '🧗 Como acelerar minha Meta na montanha?',
@@ -190,16 +351,16 @@ export default function AIChatScreen() {
           icon={<Bot className="w-10 h-10 text-slate-950" />}
           benefits={[
             {
-              title: 'Diagnóstico em Tempo Real',
-              desc: 'Análise detalhada de gastos, sobras e fluxo de caixa mensal.',
+              title: 'Lançamento Automático por Voz ou Texto',
+              desc: 'Diga "Gastei 50 no almoço" e o Dante lança direto no seu extrato.',
             },
             {
-              title: 'Dicas de Investimentos Personalizadas',
-              desc: 'Orientações sob medida para Tesouro Selic, CDBs e Fundos Imobiliários.',
+              title: 'Cálculo de Limite Diário Seguro',
+              desc: 'Saiba exatamente quanto pode gastar por dia para não faltar dinheiro.',
             },
             {
-              title: 'Cálculo de Reserva de Emergência',
-              desc: 'Planejamento automático com base nas suas despesas reais.',
+              title: 'Auditoria de Ralos e Desperdícios',
+              desc: 'Identificação imediata de onde cortar sem sofrimento.',
             },
             {
               title: 'Estratégias para o Jogo da Meta',
@@ -223,15 +384,15 @@ export default function AIChatScreen() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg sm:text-xl font-black text-white font-mono tracking-tight flex items-center gap-2">
-                Dante <span className="text-cyan-400 neon-text-cyan">• Mentor de Hábitos & Finanças</span>
+                Dante <span className="text-cyan-400 neon-text-cyan">• Mentor Financeiro Ultra Inteligente</span>
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                ONLINE 24/7
+                AUTO-EXECUÇÃO
               </span>
             </div>
             <p className="text-xs text-slate-300 font-mono mt-0.5">
-              Seu parceiro inteligente para organizar sua vida financeira, mudar hábitos e sair do aperto.
+              Peça para lançar despesas, calcular limite diário ou auditar gastos: o Dante faz tudo na hora!
             </p>
           </div>
         </div>
@@ -239,7 +400,7 @@ export default function AIChatScreen() {
         {/* Quick HUD Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono relative z-10">
           <div className="bg-slate-900/60 border border-white/10 rounded-xl px-2.5 py-1.5">
-            <span className="text-slate-400 block text-[9px]">SALDO</span>
+            <span className="text-slate-400 block text-[9px]">SALDO LIVRE</span>
             <span className="font-bold text-cyan-300">{formatBRL(metrics.balance)}</span>
           </div>
           <div className="bg-slate-900/60 border border-white/10 rounded-xl px-2.5 py-1.5">
@@ -271,12 +432,102 @@ export default function AIChatScreen() {
                 )}
 
                 <div
-                  className={`max-w-[85%] sm:max-w-[78%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-lg ${
+                  className={`max-w-[88%] sm:max-w-[80%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-lg ${
                     isAssistant
                       ? 'bg-slate-900/90 border border-white/10 text-slate-100 rounded-tl-sm'
                       : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-tr-sm'
                   }`}
                 >
+                  {/* Card de Ação Executada Automaticamente */}
+                  {msg.actionExecuted && (
+                    <div className="mb-3 p-3 rounded-xl bg-slate-950/90 border border-cyan-400/40 shadow-inner space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                          Lançado Automaticamente no Extrato
+                        </span>
+                        {msg.actionExecuted.undone ? (
+                          <span className="text-[10px] font-mono text-rose-400 font-bold px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/30">
+                            Desfeito
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              handleUndoTransaction(msg.id, msg.actionExecuted!.id)
+                            }
+                            className="text-[10px] font-mono text-slate-400 hover:text-rose-300 flex items-center gap-1 px-2 py-0.5 rounded hover:bg-white/5 transition"
+                            title="Desfazer este lançamento"
+                          >
+                            <Undo2 className="w-3 h-3" />
+                            <span>Desfazer</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+                        <span
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
+                            msg.actionExecuted.type === 'income'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          }`}
+                        >
+                          {msg.actionExecuted.type === 'income' ? (
+                            <>
+                              <ArrowUpRight className="w-3 h-3" /> Receita
+                            </>
+                          ) : (
+                            <>
+                              <ArrowDownRight className="w-3 h-3" /> Despesa
+                            </>
+                          )}
+                        </span>
+
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-400/30 flex items-center gap-1">
+                          <Tag className="w-3 h-3" />
+                          <span>
+                            {categoryIcons[msg.actionExecuted.category] ||
+                              getCategoryMeta(msg.actionExecuted.category).emoji}
+                          </span>
+                          <span>{msg.actionExecuted.category}</span>
+                        </span>
+
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white">
+                          {formatBRL(msg.actionExecuted.amount)}
+                        </span>
+
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] text-slate-300 bg-white/5 border border-white/10 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {formatDateBR(msg.actionExecuted.date)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card de Orçamento Diário Seguro */}
+                  {msg.budgetCard && (
+                    <div className="mb-3 p-3 rounded-xl bg-gradient-to-r from-emerald-950/40 to-slate-950/80 border border-emerald-400/40 shadow-inner flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider block">
+                          Limite Diário Seguro
+                        </span>
+                        <div className="text-base sm:text-lg font-black text-emerald-300 font-mono mt-0.5">
+                          {formatBRL(msg.budgetCard.dailyBudget)}{' '}
+                          <span className="text-[10px] font-normal text-slate-400">/ dia</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-mono text-slate-400 block">
+                          Dias Restantes
+                        </span>
+                        <span className="text-xs font-mono font-bold text-cyan-300">
+                          {msg.budgetCard.daysRemaining} dias
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Texto da Resposta */}
                   <div className="whitespace-pre-wrap font-sans space-y-1.5">
                     {msg.content.split('\n').map((line, idx) => {
                       if (line.startsWith('• ') || line.startsWith('- ')) {
@@ -303,7 +554,10 @@ export default function AIChatScreen() {
                       isAssistant ? 'text-slate-500' : 'text-cyan-200'
                     }`}
                   >
-                    {msg.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    {msg.timestamp.toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </div>
                 </div>
 
@@ -323,7 +577,7 @@ export default function AIChatScreen() {
               </div>
               <div className="rounded-2xl px-4 py-2.5 bg-slate-900/90 border border-white/10 text-cyan-400 font-mono text-xs flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                <span>Dante está analisando seus dados e preparando a orientação...</span>
+                <span>Dante está analisando suas contas e executando ações...</span>
               </div>
             </div>
           )}
@@ -331,10 +585,28 @@ export default function AIChatScreen() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Live Input Detection HUD */}
+        {livePreview && (
+          <div className="px-4 py-1.5 bg-cyan-950/60 border-t border-cyan-500/30 flex items-center gap-2 text-xs font-mono animate-fade-in">
+            <span className="text-[10px] font-bold text-cyan-300 uppercase flex items-center gap-1">
+              <Zap className="w-3 h-3 text-cyan-400" /> Dante vai lançar automaticamente:
+            </span>
+            <span
+              className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                livePreview.type === 'income' ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {livePreview.type === 'income' ? '+ Receita' : '- Despesa'} {formatBRL(livePreview.amount)}
+            </span>
+            <span className="text-slate-400 text-[10px]">em {livePreview.category}</span>
+            <span className="text-slate-500 text-[10px]">({formatDateBR(livePreview.date)})</span>
+          </div>
+        )}
+
         {/* Quick Suggestion Chips */}
         <div className="px-4 py-2 border-t border-white/5 bg-slate-900/40 overflow-x-auto no-scrollbar flex items-center gap-2">
           <span className="text-[10px] font-mono text-slate-400 shrink-0 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-cyan-400" /> Sugestões:
+            <Sparkles className="w-3 h-3 text-cyan-400" /> Ações Rápidas:
           </span>
           {SUGGESTIONS.map((item, idx) => (
             <button
@@ -355,7 +627,7 @@ export default function AIChatScreen() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ex.: Como economizar R$ 500 este mês? / Analise meus investimentos..."
+              placeholder="Digite uma dúvida ou ordene: 'Lança 150 de internet', 'Gastei 45 no almoço'..."
               rows={2}
               className="flex-1 bg-slate-900/80 border border-white/15 focus:border-cyan-400 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 resize-none font-sans"
             />
@@ -369,8 +641,13 @@ export default function AIChatScreen() {
             </button>
           </div>
           <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-2 px-1">
-            <span>Dante Mentor Financeiro • Estratégias reais para mudar seus hábitos</span>
-            <span className="hidden sm:inline">Pressione Enter para enviar (Shift+Enter para quebrar linha)</span>
+            <span className="flex items-center gap-1">
+              <Zap className="w-3 h-3 text-cyan-400" />
+              Auto-Execução Ativa: Lançamentos digitados são salvos automaticamente no extrato
+            </span>
+            <span className="hidden sm:inline">
+              Pressione Enter para enviar (Shift+Enter para quebrar linha)
+            </span>
           </div>
         </div>
       </div>
@@ -384,7 +661,10 @@ function renderFormattedText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={i} className="font-bold text-cyan-300 [.theme-pro_light_&]:text-blue-700 print:text-slate-900">
+        <strong
+          key={i}
+          className="font-bold text-cyan-300 [.theme-pro_light_&]:text-blue-700 print:text-slate-900"
+        >
           {part.slice(2, -2)}
         </strong>
       );
