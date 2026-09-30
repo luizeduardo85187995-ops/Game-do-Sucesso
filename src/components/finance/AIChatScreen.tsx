@@ -42,6 +42,10 @@ export default function AIChatScreen() {
     monthNet: metrics.monthNet,
     investedTotal: metrics.investedTotal,
     estimatedPassiveIncome: metrics.estimatedPassiveIncome,
+    futureExpenses: metrics.futureExpenses,
+    nextMonthExpenses: metrics.nextMonthExpenses,
+    projectedBalance: metrics.projectedBalance,
+    realFreeBalance: metrics.realFreeBalance,
     transactions,
     investments,
     savingGoals,
@@ -50,18 +54,28 @@ export default function AIChatScreen() {
   // Initial greeting with dynamic diagnostic
   useEffect(() => {
     let situacaoTexto = '';
-    if (metrics.monthNet > 0) {
-      situacaoTexto = `🟢 Sobrando **${formatBRL(metrics.monthNet)}** neste mês! Uma ótima folga para mandar um pedacinho para a sua meta.`;
-    } else if (metrics.monthNet < 0) {
+    const committedFuture = metrics.nextMonthExpenses || metrics.futureExpenses || 0;
+
+    if (committedFuture > 0) {
+      situacaoTexto = `⚠️ Saldo em conta de **${formatBRL(metrics.balance)}**, com **${formatBRL(committedFuture)}** já comprometidos em despesas futuras (próximo mês). Muito bem por lançar com antecedência: vamos proteger esse saldo!`;
+    } else if (metrics.balance < metrics.monthNet) {
+      situacaoTexto = `Entraram **${formatBRL(metrics.monthIncome)}** este mês, mas o seu saldo real em conta hoje é de **${formatBRL(metrics.balance)}** (o restante já foi debitado ou utilizado).`;
+    } else if (metrics.monthNet > 0 && metrics.balance > 0) {
+      situacaoTexto = `🟢 Entradas superando saídas em **${formatBRL(metrics.monthNet)}** e saldo em conta de **${formatBRL(metrics.balance)}**.`;
+    } else if (metrics.monthNet < 0 || metrics.balance < 0) {
       situacaoTexto = `🔴 Suas saídas estão maiores em **${formatBRL(Math.abs(metrics.monthNet))}** neste mês. Mas calma, sem pânico: vamos ajustar juntos!`;
     } else {
-      situacaoTexto = `⚪ Entradas e saídas estão equilibradas este mês.`;
+      situacaoTexto = `⚪ Entradas e saídas equilibradas este mês.`;
     }
+
+    const futureDetails = committedFuture > 0 
+      ? `\n• 📅 Despesas agendadas (próximo mês): **${formatBRL(committedFuture)}** (já consom seu saldo)\n• 🛡️ Saldo livre projetado: **${formatBRL(metrics.projectedBalance)}**`
+      : '';
 
     const initialText =
       transactions.length === 0
         ? `Oi! Sou o **Dante**, seu mentor e amigo financeiro aqui no **Minhas Finanças** 🐾💡\n\nEu não tô aqui pra te julgar, nem pra falar termos complicados de economia. Meu papel é te ajudar a organizar sua vida financeira no seu ritmo, sem neura e sem sofrimento.\n\n**Como posso te ajudar hoje:**\n• 🛑 **Descobrir para onde o seu dinheiro está sumindo** e fechar ralos invisíveis\n• 🛍️ **Controlar compras por impulso**, delivery e fatura de cartão\n• 🐷 **Aprender a guardar os primeiros R$ 20, R$ 50 ou R$ 100**, mesmo que nunca sobre nada\n• 🎯 **Montar uma rotina simples** pra você nunca mais ficar no aperto\n\nMe conta: qual é a sua maior dificuldade com dinheiro hoje ou o que você quer melhorar na sua rotina?`
-        : `Oi! Sou o **Dante**, seu mentor financeiro de bolso 🐾\n\nJá analisei seus dados cadastrados e aqui está o seu **Raio-X em tempo real**:\n• 💰 Saldo total nas contas: **${formatBRL(metrics.balance)}**\n• 📊 Situação deste mês: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\nNão importa se você ganha muito ou pouco, ou se está desorganizado: a gente começa de onde você está agora. O que você gostaria de destravar hoje?`;
+        : `Oi! Sou o **Dante**, seu mentor financeiro de bolso 🐾\n\nJá analisei seus dados cadastrados e aqui está o seu **Raio-X em tempo real**:\n• 💰 Saldo real nas contas: **${formatBRL(metrics.balance)}**${futureDetails}\n• 📊 Situação real: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\nNão importa se você ganha muito ou pouco, ou se está desorganizado: a gente começa de onde você está agora. O que você gostaria de destravar hoje?`;
 
     setMessages([
       {
@@ -139,6 +153,10 @@ export default function AIChatScreen() {
   };
 
   const SUGGESTIONS = [
+    {
+      label: '⚖️ Meu saldo aguenta as contas do próximo mês?',
+      query: 'Dá uma olhada no meu saldo real em conta e nas despesas que já lancei para o próximo mês. O meu dinheiro vai dar conta ou já está todo comprometido?',
+    },
     {
       label: '🆘 Tô no vermelho, por onde começo?',
       query: 'Tô meio enrolado com as contas e sinto que meu dinheiro não rende. Por onde eu começo a me organizar na prática sem pirar?',

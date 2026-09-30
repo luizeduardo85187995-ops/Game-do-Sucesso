@@ -19,7 +19,7 @@ import {
   DEFAULT_MARKET_INDICATORS,
   ESTIMATED_MONTHLY_YIELD,
 } from '../data/categories';
-import { monthKey, todayISO } from '../utils/format';
+import { monthKey, todayISO, nextMonthKey } from '../utils/format';
 import {
   B3_CATALOG,
   fetchB3Quote,
@@ -44,6 +44,10 @@ export interface FinanceMetrics {
   bankBalance: number;
   creditCardDebt: number;
   savingsRate: number;
+  futureExpenses: number;
+  nextMonthExpenses: number;
+  projectedBalance: number;
+  realFreeBalance: number;
 }
 
 interface FinanceContextValue {
@@ -438,14 +442,27 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   // Computed metrics
   const metrics = useMemo<FinanceMetrics>(() => {
     const currentMKey = monthKey(todayISO());
+    const nextMKey = nextMonthKey(todayISO());
+    const todayStr = todayISO();
 
     let monthIncome = 0;
     let monthExpense = 0;
+    let futureExpenses = 0;
+    let nextMonthExpenses = 0;
 
     for (const tx of transactions) {
       if (monthKey(tx.date) === currentMKey) {
         if (tx.type === 'income') monthIncome += tx.amount;
         else monthExpense += tx.amount;
+      }
+
+      if (tx.type === 'expense') {
+        if (tx.date > todayStr || monthKey(tx.date) > currentMKey) {
+          futureExpenses += tx.amount;
+        }
+        if (monthKey(tx.date) === nextMKey) {
+          nextMonthExpenses += tx.amount;
+        }
       }
     }
 
@@ -493,6 +510,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     const balance = bankBalance - creditCardDebt;
     const savingsRate = monthIncome > 0 ? Math.max(0, Math.min(100, (monthNet / monthIncome) * 100)) : 0;
 
+    // Despesas futuras / próximo mês que comprometem o saldo atual
+    const committedExpenses = futureExpenses > 0 ? futureExpenses : nextMonthExpenses;
+    const projectedBalance = balance - committedExpenses;
+    const realFreeBalance = Math.max(0, projectedBalance);
+
     return {
       balance,
       monthIncome,
@@ -507,6 +529,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       bankBalance,
       creditCardDebt,
       savingsRate,
+      futureExpenses,
+      nextMonthExpenses,
+      projectedBalance,
+      realFreeBalance,
     };
   }, [transactions, bankAccounts, investments, dividendEvents]);
 

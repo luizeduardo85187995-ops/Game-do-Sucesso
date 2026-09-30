@@ -23,6 +23,7 @@ import {
   Crown,
   Compass,
   Edit2,
+  Calendar,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
@@ -305,6 +306,30 @@ export default function OverviewScreen({
       {/* Auto-Lançador por Linguagem Natural */}
       <SmartQuickLauncher />
 
+      {/* Banner de Planejamento Preventivo quando há despesas futuras agendadas */}
+      {metrics.futureExpenses > 0 && (
+        <div className={`rounded-2xl p-4 border flex items-start sm:items-center gap-3.5 transition-all ${
+          isLight
+            ? 'bg-amber-50/90 border-amber-200/90 text-amber-950 shadow-sm'
+            : 'bg-amber-500/10 border-amber-500/30 text-amber-200 shadow-lg shadow-amber-500/5'
+        }`}>
+          <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+            <Calendar className="w-5 h-5 text-amber-500" />
+          </div>
+          <div className="flex-1 text-xs leading-relaxed">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="font-bold text-sm">Planejamento Preventivo Ativo</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                isLight ? 'bg-amber-100 text-amber-800' : 'bg-amber-400/20 text-amber-300'
+              }`}>
+                Próximo Mês
+              </span>
+            </div>
+            Você cadastrou <strong>{formatBRL(metrics.futureExpenses)}</strong> em despesas futuras. Seu saldo em conta (<strong>{formatBRL(metrics.balance)}</strong>) já está reservado para cobrir esses compromissos, restando <strong>{formatBRL(metrics.projectedBalance)}</strong> de saldo livre projetado.
+          </div>
+        </div>
+      )}
+
       {/* Financial Metrics Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Saldo Consolidado */}
@@ -328,12 +353,22 @@ export default function OverviewScreen({
           }`}>
             {formatBRL(metrics.balance)}
           </div>
-          <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${
-            isLight ? 'text-slate-500' : 'text-cyan-400/80'
-          }`}>
-            <Zap className={`w-3 h-3 ${isLight ? 'text-blue-500' : 'text-cyan-400'}`} />
-            <span>{bankAccounts.length} {bankAccounts.length === 1 ? 'instituição ativa' : 'instituições ativas'}</span>
-          </div>
+          {metrics.futureExpenses > 0 ? (
+            <div className={`text-[10px] mt-1 font-mono flex items-center gap-1 font-semibold ${
+              metrics.projectedBalance < 0
+                ? isLight ? 'text-rose-600' : 'text-rose-400'
+                : isLight ? 'text-amber-700' : 'text-amber-400'
+            }`}>
+              <span>Comprometido: {formatBRL(metrics.futureExpenses)}</span>
+            </div>
+          ) : (
+            <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${
+              isLight ? 'text-slate-500' : 'text-cyan-400/80'
+            }`}>
+              <Zap className={`w-3 h-3 ${isLight ? 'text-blue-500' : 'text-cyan-400'}`} />
+              <span>{bankAccounts.length} {bankAccounts.length === 1 ? 'instituição ativa' : 'instituições ativas'}</span>
+            </div>
+          )}
         </div>
 
         {/* Entradas do Mês */}
@@ -388,17 +423,17 @@ export default function OverviewScreen({
           <div className={`text-[11px] mt-1 font-mono font-medium ${
             isLight ? 'text-rose-700/80' : 'text-orange-400/70'
           }`}>
-            Despesas do Período
+            Despesas Deste Mês
           </div>
         </div>
 
-        {/* Resultado Líquido */}
+        {/* Resultado do Mês */}
         <div className="cyber-card rounded-2xl p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
             <span className={`text-[11px] font-bold uppercase tracking-wider ${
               isLight ? 'text-slate-500' : 'text-slate-400'
             }`}>
-              Resultado Líquido
+              Fluxo deste Mês
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
               metrics.monthNet >= 0
@@ -422,7 +457,13 @@ export default function OverviewScreen({
           <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${
             isLight ? 'text-slate-500' : 'text-slate-400'
           }`}>
-            <span>Taxa de Poupança: <strong className={`font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>{metrics.savingsRate.toFixed(0)}%</strong></span>
+            {metrics.futureExpenses > 0 ? (
+              <span className={`text-[10px] ${isLight ? 'text-amber-700 font-semibold' : 'text-amber-400 font-semibold'}`}>
+                Saldo Livre Projetado: <strong>{formatBRL(metrics.projectedBalance)}</strong>
+              </span>
+            ) : (
+              <span>Taxa de Poupança: <strong className={`font-bold ${isLight ? 'text-amber-700' : 'text-amber-400'}`}>{metrics.savingsRate.toFixed(0)}%</strong></span>
+            )}
           </div>
         </div>
       </div>

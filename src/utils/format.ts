@@ -38,6 +38,23 @@ export function monthKey(iso: string): string {
   return iso ? iso.slice(0, 7) : todayISO().slice(0, 7);
 }
 
+export function nextMonthKey(iso: string = todayISO()): string {
+  const parts = iso.split('-');
+  let y = parseInt(parts[0] || '2026', 10);
+  let m = parseInt(parts[1] || '1', 10);
+  m += 1;
+  if (m > 12) {
+    m = 1;
+    y += 1;
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+export function isFutureDate(iso: string): boolean {
+  if (!iso) return false;
+  return iso > todayISO();
+}
+
 export function monthLabel(key: string): string {
   const parts = key.split('-');
   if (parts.length < 2) return key;
