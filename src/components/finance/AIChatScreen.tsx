@@ -104,26 +104,41 @@ export default function AIChatScreen() {
   useEffect(() => {
     let situacaoTexto = '';
     const committedFuture = metrics.nextMonthExpenses || metrics.futureExpenses || 0;
+    const isNegative = metrics.balance < 0;
+    const isPositive = metrics.balance > 0;
+    const isZero = metrics.balance === 0;
 
-    if (committedFuture > 0 && metrics.balance > 0) {
-      situacaoTexto = `🟢 Você já lançou e abateu **${formatBRL(committedFuture)}** em despesas (inclusive do próximo mês) e ainda tem **${formatBRL(metrics.balance)} livres sobrando** na conta! Excelente controle!`;
-    } else if (metrics.balance > 0) {
-      situacaoTexto = `🟢 Saldo positivo e livre de **${formatBRL(metrics.balance)}** nas suas contas.`;
-    } else if (metrics.balance < 0) {
-      situacaoTexto = `🔴 Saldo negativo de **${formatBRL(Math.abs(metrics.balance))}**. Mas calma, vamos organizar isso juntos passo a passo.`;
+    let saldoLinha = '';
+    let sobraLinha = '';
+
+    if (isNegative) {
+      const deficit = Math.abs(metrics.balance);
+      saldoLinha = `• 🔴 Saldo em conta: **-${formatBRL(deficit)}** (no vermelho / cheque especial)`;
+      sobraLinha = `• ⚠️ Saldo livre disponível: **R$ 0,00** (Esgotado - você está com um déficit de ${formatBRL(deficit)})`;
+      situacaoTexto = `🔴 Suas despesas cadastradas ultrapassaram as entradas em **${formatBRL(deficit)}**. É hora de estancar gastos supérfluos e avaliar novas entradas para zerar esse negativo com calma.`;
+    } else if (isPositive) {
+      saldoLinha = `• 💰 Saldo em conta: **${formatBRL(metrics.balance)}**`;
+      sobraLinha = `• 🛡️ Saldo líquido livre disponível: **${formatBRL(metrics.balance)}** (sobra real)`;
+      if (committedFuture > 0) {
+        situacaoTexto = `🟢 Você já lançou e abateu **${formatBRL(committedFuture)}** em despesas (inclusive do próximo mês) e ainda tem **${formatBRL(metrics.balance)} livres sobrando** na conta! Excelente controle!`;
+      } else {
+        situacaoTexto = `🟢 Saldo positivo e livre de **${formatBRL(metrics.balance)}** nas suas contas.`;
+      }
     } else {
+      saldoLinha = `• ⚪ Saldo em conta: **R$ 0,00**`;
+      sobraLinha = `• ⚠️ Saldo livre disponível: **R$ 0,00** (Sem folga no momento)`;
       situacaoTexto = `⚪ Saldo zerado nas contas.`;
     }
 
     const futureDetails =
       committedFuture > 0
-        ? `\n• 📋 Despesas já abatidas no saldo: **${formatBRL(committedFuture)}** (já descontadas das suas contas)\n• 🛡️ Saldo líquido que sobra livre: **${formatBRL(metrics.balance)}**`
-        : '';
+        ? `\n• 📋 Despesas já abatidas no saldo: **${formatBRL(committedFuture)}** (já descontadas das suas contas)\n${sobraLinha}`
+        : `\n${sobraLinha}`;
 
     const initialText =
       transactions.length === 0
         ? `Oi! Sou o **Dante**, seu mentor e parceiro inteligente aqui no **Minhas Finanças** 🐾⚡\n\nAgora sou **100% automático e proativo**: você pode conversar comigo OU pedir para eu lançar coisas diretamente aqui no chat!\n\n**O que você pode fazer:**\n• ⚡ **Lançamento Automático:** Digite *"Lança 150 de internet"*, *"Gastei 45 no almoço"* ou *"Recebi 2500 de salário"*, e eu lanço no seu extrato na hora!\n• 💵 **Limite Diário Seguro:** Me pergunte *"Quanto posso gastar por dia?"* e eu calculo sua cota diária até o fim do mês.\n• 🔍 **Auditoria de Ralos:** Me pergunte *"Onde estou gastando muito?"* e eu mostro os maiores vilões do seu orçamento.\n\nQual conta ou dúvida está no seu radar agora?`
-        : `Oi! Sou o **Dante**, seu mentor financeiro ultra inteligente 🐾⚡\n\nJá analisei suas contas em tempo real:\n• 💰 Saldo livre nas contas: **${formatBRL(metrics.balance)}**${futureDetails}\n• 📊 Situação real: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\n💡 **Comandos Automáticos:** Pode me pedir coisas como *"Lança 150 de internet"*, *"Gastei 40 no uber"*, ou perguntar *"Quanto posso gastar por dia até o fim do mês?"*! O que quer fazer agora?`;
+        : `Oi! Sou o **Dante**, seu mentor financeiro ultra inteligente 🐾⚡\n\nJá analisei suas contas em tempo real:\n${saldoLinha}${futureDetails}\n• 📊 Situação real: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\n💡 **Comandos Automáticos:** Pode me pedir coisas como *"Lança 150 de internet"*, *"Gastei 40 no uber"*, ou perguntar *"Quanto posso gastar por dia até o fim do mês?"*! O que quer fazer agora?`;
 
     setMessages([
       {
@@ -400,8 +415,16 @@ export default function AIChatScreen() {
         {/* Quick HUD Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono relative z-10">
           <div className="bg-slate-900/60 border border-white/10 rounded-xl px-2.5 py-1.5">
-            <span className="text-slate-400 block text-[9px]">SALDO LIVRE</span>
-            <span className="font-bold text-cyan-300">{formatBRL(metrics.balance)}</span>
+            <span className="text-slate-400 block text-[9px]">
+              {metrics.balance >= 0 ? 'SALDO LIVRE' : 'SALDO (NO VERMELHO)'}
+            </span>
+            <span
+              className={`font-bold ${
+                metrics.balance >= 0 ? 'text-cyan-300' : 'text-rose-400 font-mono'
+              }`}
+            >
+              {formatBRL(metrics.balance)}
+            </span>
           </div>
           <div className="bg-slate-900/60 border border-white/10 rounded-xl px-2.5 py-1.5">
             <span className="text-slate-400 block text-[9px]">INVESTIDO</span>

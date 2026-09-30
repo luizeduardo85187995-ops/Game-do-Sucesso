@@ -256,11 +256,17 @@ export function calculateSafeDailyBudget(realFreeBalance: number): {
   const dailyBudget = realFreeBalance > 0 ? realFreeBalance / daysRemaining : 0;
 
   if (realFreeBalance <= 0) {
+    const deficit = Math.abs(realFreeBalance);
     return {
       daysRemaining,
       dailyBudget: 0,
       status: 'negative',
-      message: `Atenção: Seu saldo livre está em ${formatBRL(realFreeBalance)}. É hora de travar gastos variáveis e priorizar apenas necessidades básicas.`,
+      message:
+        realFreeBalance < 0
+          ? `Atenção: Você está com saldo NEGATIVO em -${formatBRL(
+              deficit
+            )}. Seu saldo livre disponível é **R$ 0,00** (Esgotado). É momento de estancar compras variáveis e focar em cobrir esse descoberto.`
+          : `Atenção: Seu saldo em conta está zerado (R$ 0,00). Não há saldo livre disponível até a entrada de novas receitas.`,
     };
   }
 

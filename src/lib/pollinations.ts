@@ -65,12 +65,12 @@ SEU PÚBLICO E SUA MISSÃO:
 
 REGRA DE OURO SOBRE O SALDO DO USUÁRIO E DESPESAS LANÇADAS:
 1. COMO FUNCIONA O SALDO NO SISTEMA:
-   - Toda despesa lançada pelo usuário (mesmo com vencimento no próximo mês) JÁ É AUTOMATICAMENTE ABATIDA do saldo da conta bancária!
-   - Portanto, o SALDO EM CONTA que aparece no sistema (ex: R$ 206,00) JÁ É O VALOR LÍQUIDO QUE SOBRA LIVRE após abater todas as contas cadastradas!
-   - NUNCA subtraia novamente as despesas do saldo! Isso geraria uma "dupla dedução" absurda (ex: 206 - 3594 = -3388), fazendo parecer que a pessoa está endividada ou que ainda precisa arranjar dinheiro para pagar essas despesas, quando na verdade essas contas já foram abatidas e o saldo de R$ 206 é o que SOBRA limpo!
-2. O QUE EXPLICAR SE O USUÁRIO PERGUNTAR:
-   - Diga com total firmeza, clareza e acolhimento: "Fique 100% tranquilo! O seu saldo de R$ 206,00 já é o que te sobrou limpo e livre após abater as contas do próximo mês (R$ 3.594,00) que você cadastrou. Essas despesas já foram descontadas do seu saldo bancário no momento do lançamento. Você não tem que arranjar mais R$ 3.000 para pagar nada: essas contas já estão garantidas e descontadas, e esses R$ 206,00 são a sua folga real restante!"
-   - Elogie o usuário pelo planejamento antecipado: ele lançou as despesas futuras com antecedência e agora sabe exatamente que, depois de tudo pago, sobram R$ 206,00 livres na mão.
+   - Toda despesa lançada pelo usuário (mesmo com vencimento no próximo mês) JÁ É AUTOMATICAMENTE ABATIDA do saldo da conta bancária.
+   - SE O SALDO FOR POSITIVO (ex: R$ 206,00): Esse valor é a sobra limpa e livre após abater as contas cadastradas.
+   - SE O SALDO FOR NEGATIVO (ex: -R$ 334,00): O USUÁRIO ESTÁ NO VERMELHO / EM DÉFICIT! O saldo livre dele é ZERO (R$ 0,00) e ele tem um descoberto/falta de R$ 334,00! NUNCA, SOB NENHUMA HIPÓTESE, chame saldo negativo de "saldo livre" ou diga que "sobra livre negativo". Isso é um erro grosseiro de lógica financeira. Diga claramente: "Você está no vermelho em R$ 334,00 porque as despesas cadastradas ultrapassaram as entradas."
+   - SE O SALDO FOR ZERO (R$ 0,00): O saldo está no limite exato, sem sobra livre.
+2. NUNCA FAÇA DUPLA DEDUÇÃO:
+   - As despesas cadastradas já foram descontadas do saldo da conta. Não desconte de novo. O número que está no saldo já reflete todas as saídas cadastradas.
 
 DIRETRIZES DE LINGUAGEM E DIDÁTICA (ZERO FINANCÊS):
 1. Use Português do Brasil natural, caloroso, simples e direto.
@@ -179,16 +179,24 @@ function buildSystemPrompt(context: FinanceContextData): string {
   const futureDeducted = totalFutureExpenses || context.futureExpenses || 0;
 
   let statusHumano = '';
+  let saldoDescricao = '';
+  const isNegative = balance < 0;
+
   if (context.transactions.length === 0) {
     statusHumano = 'Usuário novo, ainda não lançou receitas ou despesas.';
+    saldoDescricao = `- Saldo em conta: ${formatBRL(balance)}\n- Saldo livre disponível: ${formatBRL(Math.max(0, balance))}`;
+  } else if (isNegative) {
+    statusHumano = `SITUAÇÃO NO VERMELHO: O saldo bancário está NEGATIVO em ${formatBRL(balance)} (descoberto de ${formatBRL(Math.abs(balance))}). O saldo livre é ZERO (R$ 0,00). O total de despesas cadastradas ultrapassou o dinheiro disponível. NUNCA diga que ele tem saldo livre. Oriente com calma para estancar o vermelho.`;
+    saldoDescricao = `- Saldo em conta: ${formatBRL(balance)} (NEGATIVO / NO VERMELHO)\n- Saldo livre disponível para gastar: R$ 0,00 (ZERO - o usuário está com déficit de ${formatBRL(Math.abs(balance))})`;
   } else if (futureDeducted > 0 && balance > 0) {
-    statusHumano = `SITUAÇÃO POSITIVA E PLANEJADA: O usuário já lançou e abateu ${formatBRL(futureDeducted)} em despesas (inclusive do próximo mês) do saldo bancário, e ainda restam ${formatBRL(balance)} livres e desimpedidos na conta! Não há nenhum déficit ou dívida pendente dessas contas: elas já foram computadas e o saldo restante de ${formatBRL(balance)} é a sobra limpa dele.`;
+    statusHumano = `SITUAÇÃO POSITIVA E PLANEJADA: O usuário já lançou e abateu ${formatBRL(futureDeducted)} em despesas (inclusive do próximo mês) do saldo bancário, e ainda restam ${formatBRL(balance)} livres e desimpedidos na conta! Não há nenhum déficit pendente dessas contas: elas já foram computadas e o saldo restante de ${formatBRL(balance)} é a sobra limpa dele.`;
+    saldoDescricao = `- Saldo em conta: ${formatBRL(balance)} (POSITIVO E LIVRE)\n- Saldo líquido livre disponível: ${formatBRL(balance)} (sobra real após abater as contas lançadas)`;
   } else if (balance > 0) {
     statusHumano = `Saldo positivo e livre de ${formatBRL(balance)} nas contas.`;
-  } else if (balance < 0) {
-    statusHumano = `Saldo negativo de ${formatBRL(balance)}. Precisa de acolhimento e passos simples para estancar despesas supérfluas sem desespero.`;
+    saldoDescricao = `- Saldo em conta: ${formatBRL(balance)} (POSITIVO)\n- Saldo livre disponível: ${formatBRL(balance)}`;
   } else {
     statusHumano = `Saldo zerado nas contas.`;
+    saldoDescricao = `- Saldo em conta: R$ 0,00\n- Saldo livre disponível: R$ 0,00`;
   }
 
   // Cálculo de dias restantes e limite diário seguro
@@ -199,11 +207,11 @@ function buildSystemPrompt(context: FinanceContextData): string {
 
   const contextText = `
 DIAGNÓSTICO FINANCEIRO REAL:
-- Saldo REAL LIVRE nas contas hoje: ${formatBRL(balance)} (JÁ É O DINHEIRO LIMPO que sobra após abater todas as despesas lançadas, inclusive as do próximo mês!)
-- Despesas que já abateram o saldo (próximo mês / futuras): ${formatBRL(futureDeducted)} (já foram 100% descontadas das contas; o usuário NÃO precisa pagar nada a mais além disso)
+${saldoDescricao}
+- Despesas que já abateram o saldo: ${formatBRL(futureDeducted)} (já foram 100% descontadas das contas)
 - Entradas registradas este mês: ${formatBRL(monthIncome)}
 - Dias restantes até o fim do mês: ${daysRemaining} dias
-- LIMITE DIÁRIO SEGURO (CALCULADO): ${formatBRL(safeDailySpend)} por dia (se gastar até esse valor diário, fecha o mês no positivo!)
+- LIMITE DIÁRIO SEGURO (CALCULADO): ${isNegative ? 'R$ 0,00 (Saldo negativo, sem margem diária)' : `${formatBRL(safeDailySpend)} por dia`}
 - Situação Geral: ${statusHumano}
 - Total em investimentos: ${context.investedTotal > 0 ? formatBRL(context.investedTotal) : 'Zero investido ainda'}
 
