@@ -1,18 +1,56 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Each user owns their own document and subcollections (transactions, accounts, investments, settings)
+    // Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        (
+          (request.auth.token.email == 'luiz.honorato@lcmconstrucao.com.br' ||
+           request.auth.token.email == 'luizeduardo85187995@gmail.com') &&
+          request.auth.token.email_verified == true
+        )
+      );
+    }
+
+    // Cada usuário autenticado gerencia estritamente seus próprios dados financeiros
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
+      allow read, write: if isOwner(userId);
+
       match /{allSubcollections=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
     }
 
-    // Subscriptions collection
+    // Assinaturas e planos PRO: apenas leitura pelo usuário dono da conta ou admin.
+    // Escrita proibida para clientes comuns. O backend usa Firebase Admin SDK e não depende destas regras.
     match /subscriptions/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Anúncios parceiros e publicidade comercial: leitura pública, escrita restrita ao administrador
+    match /customAds/{adId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Configurações comerciais e de monetização globais (Kiwify URLs, PIX, AdSense): leitura pública, escrita restrita ao administrador
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

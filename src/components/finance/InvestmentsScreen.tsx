@@ -244,7 +244,7 @@ export default function InvestmentsScreen() {
               <h2 className="text-lg sm:text-xl font-black text-white">Mercado B3 & Carteira</h2>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-mono font-bold text-emerald-300 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                CONEXÃO BOLSA B3 ATIVA
+                COTAÇÕES B3 ATIVAS
               </span>
             </div>
             <p className="text-xs text-slate-400">
@@ -262,10 +262,10 @@ export default function InvestmentsScreen() {
                 ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300'
                 : 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-400/50 text-cyan-200 shadow-sm shadow-cyan-500/10'
             }`}
-            title="Conectar com a Área do Investidor B3"
+            title="Configurar carteira e importações B3"
           >
             <Link2 className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{b3Integration.isConnected ? 'B3 Conectada' : 'Conectar com a B3'}</span>
+            <span>{b3Integration.isConnected ? 'Carteira Configurada' : 'Configurar Carteira B3'}</span>
           </button>
 
           <button
@@ -469,13 +469,13 @@ export default function InvestmentsScreen() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm sm:text-base font-black text-white">Conexão Oficial com a B3 (Área do Investidor)</h3>
+                    <h3 className="text-sm sm:text-base font-black text-white">Carteira B3 por Importação</h3>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                      OPEN FINANCE B3
+                      IMPORTAÇÃO B3
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                    Sincronize automaticamente seus fundos imobiliários, ações e proventos da Área do Investidor B3 ou faça upload da sua planilha de negociação (.xlsx / .csv).
+                    Importe sua planilha ou extrato da Área do Investidor B3 (.xlsx / .csv). O app organiza sua carteira e atualiza cotações de mercado separadamente.
                   </p>
                 </div>
               </div>
@@ -486,7 +486,7 @@ export default function InvestmentsScreen() {
                   className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
                 >
                   <Link2 className="w-4 h-4" />
-                  <span>Conectar com a B3</span>
+                  <span>Configurar Carteira</span>
                 </button>
               </div>
             </div>
@@ -496,11 +496,11 @@ export default function InvestmentsScreen() {
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                 <div>
                   <div className="text-xs font-black text-white flex items-center gap-2">
-                    <span>Área do Investidor B3 Conectada</span>
+                    <span>Perfil de investimentos configurado</span>
                     <span className="font-mono text-emerald-400 text-[11px] font-normal">({b3Integration.connectedCpf})</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Custódia sincronizada • Próximos dividendos calculados automaticamente
+                    Ativos carregados por importação/manual • Cotações e projeções atualizadas pelo app
                   </p>
                 </div>
               </div>
@@ -834,7 +834,7 @@ export default function InvestmentsScreen() {
                 </div>
                 <div>
                   <h3 className="font-black text-white text-base sm:text-lg">Novo Ativo na Carteira</h3>
-                  <p className="text-[11px] text-slate-400">Conectado com cotações e dividendos da B3</p>
+                  <p className="text-[11px] text-slate-400">Carteira acompanhada com cotações e estimativas de proventos</p>
                 </div>
               </div>
 
@@ -1015,7 +1015,7 @@ export default function InvestmentsScreen() {
         </div>
       )}
 
-      {/* Modal de Conexão Oficial com a B3 & Importação de Extrato */}
+      {/* Modal de configuração da carteira B3 & importação de extrato */}
       <B3ConnectionModal
         isOpen={showB3ConnectModal}
         onClose={() => setShowB3ConnectModal(false)}

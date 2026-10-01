@@ -100,17 +100,23 @@ export function extractWebhookData(body: any) {
   };
 }
 
-export function determinePlan(data: ReturnType<typeof extractWebhookData>): SubscriptionPlan {
-  if (data.checkoutCode && ANNUAL_CHECKOUT_CODES.has(data.checkoutCode)) return 'annual';
-  if (data.checkoutCode && MONTHLY_CHECKOUT_CODES.has(data.checkoutCode)) return 'monthly';
+export function determinePlan(data: ReturnType<typeof extractWebhookData>): SubscriptionPlan | null {
+  // Defesa em profundidade: se a Kiwify informou um checkout, só aceitamos os checkouts PRO conhecidos.
+  // Isso evita que outro produto da mesma conta conceda PRO caso a configuração do webhook seja alterada por engano.
+  if (data.checkoutCode) {
+    if (ANNUAL_CHECKOUT_CODES.has(data.checkoutCode)) return 'annual';
+    if (MONTHLY_CHECKOUT_CODES.has(data.checkoutCode)) return 'monthly';
+    return null;
+  }
 
-  const annual =
-    data.productName.includes('anual') ||
-    data.productName.includes('annual') ||
-    data.frequency.includes('anual') ||
-    data.frequency.includes('annual') ||
-    data.frequency.includes('year');
-  return annual ? 'annual' : 'monthly';
+  const freq = data.frequency;
+  if (freq.includes('anual') || freq.includes('annual') || freq.includes('year')) return 'annual';
+  if (freq.includes('mensal') || freq.includes('monthly') || freq.includes('month')) return 'monthly';
+
+  if (data.productName.includes('anual') || data.productName.includes('annual')) return 'annual';
+  if (data.productName.includes('mensal') || data.productName.includes('monthly')) return 'monthly';
+
+  return null;
 }
 
 export function eventAction(event: string): EventAction {

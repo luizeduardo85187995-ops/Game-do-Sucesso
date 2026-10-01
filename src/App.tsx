@@ -652,14 +652,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <SubscriptionProvider>
-        <AuthProvider>
+    <AuthProvider>
+      <SettingsProvider>
+        <SubscriptionProvider>
           <FinanceProvider>
             <AppContent />
           </FinanceProvider>
-        </AuthProvider>
-      </SubscriptionProvider>
-    </SettingsProvider>
+        </SubscriptionProvider>
+      </SettingsProvider>
+    </AuthProvider>
   );
 }

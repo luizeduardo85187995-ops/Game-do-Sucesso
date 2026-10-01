@@ -1,137 +1,318 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
 
 export type SubscriptionPlan = 'free' | 'monthly' | 'annual';
+
+export interface VerificationResult {
+  active: boolean;
+  message: string;
+  plan?: SubscriptionPlan;
+  expiresAt?: string;
+}
 
 interface SubscriptionContextType {
   isPro: boolean;
   plan: SubscriptionPlan;
   expiresAt: string | null;
+  isChecking: boolean;
   isProModalOpen: boolean;
   openProModal: () => void;
   closeProModal: () => void;
-  activatePro: (plan: 'monthly' | 'annual', paymentMethod?: string) => Promise<void>;
+  verifySubscription: () => Promise<VerificationResult>;
+  adminGrantSubscription: (targetUid?: string, selectedPlan?: 'monthly' | 'annual') => Promise<{ success: boolean; message: string }>;
   downgradeToFree: () => Promise<void>;
+  activatePro: (plan: 'monthly' | 'annual', paymentMethod?: string) => Promise<void>; // compatibilidade: nunca concede PRO a usuário comum
 }
 
-const STORAGE_KEY = '@financas/subscription-v1';
+const STORAGE_KEY_PREFIX = '@financas/sub_';
+
+function isSubscriptionActive(plan: SubscriptionPlan, expiresAt: string | null): boolean {
+  if (plan !== 'monthly' && plan !== 'annual') return false;
+  if (!expiresAt || typeof expiresAt !== 'string') return false;
+  const expTime = new Date(expiresAt).getTime();
+  if (isNaN(expTime) || expTime <= Date.now()) return false;
+  return true;
+}
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [plan, setPlan] = useState<SubscriptionPlan>('free');
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
   const [isProModalOpen, setIsProModalOpen] = useState(false);
 
-  // Carrega localmente inicialmente
-  useEffect(() => {
+  const currentStorageKey = user ? `${STORAGE_KEY_PREFIX}${user.uid}` : `${STORAGE_KEY_PREFIX}guest`;
+
+  const claimPendingSubscription = async () => {
+    if (!user?.uid) return;
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.plan) setPlan(parsed.plan);
-        if (parsed.expiresAt) setExpiresAt(parsed.expiresAt);
-      }
-    } catch (e) {
-      console.warn('Erro ao carregar status de assinatura local:', e);
+      const idToken = await user.getIdToken();
+      await fetch('/api/subscriptions/claim-pending', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+    } catch (err) {
+      // O endpoint é complementar. A consulta autoritativa ao Firestore continua abaixo.
+      console.warn('Não foi possível verificar assinatura pendente:', err);
     }
-  }, []);
+  };
 
-  // Se o usuário logar, sincroniza com o Firestore
+  // 1. CARREGAMENTO INICIAL: FIRESTORE É A ÚNICA AUTORIDADE DE ACESSO PRO.
+  // O localStorage permanece apenas como cache informativo e nunca concede privilégio.
   useEffect(() => {
-    if (!user) return;
-    const currentUserId = user.uid;
-
     let isMounted = true;
-    async function loadCloudSubscription() {
+
+    if (!user?.uid) {
+      setPlan('free');
+      setExpiresAt(null);
       try {
-        const subDocRef = doc(db, 'subscriptions', currentUserId);
-        const subSnap = await getDoc(subDocRef);
-        if (subSnap.exists() && isMounted) {
+        localStorage.removeItem(currentStorageKey);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const uid = user.uid;
+    const userCacheKey = `${STORAGE_KEY_PREFIX}${uid}`;
+
+    // Enquanto o servidor não confirma, o usuário permanece FREE.
+    setPlan('free');
+    setExpiresAt(null);
+
+    async function loadRemoteSubscription() {
+      try {
+        // Se um pagamento chegou antes do primeiro login, tenta vinculá-lo ao UID real.
+        try {
+          const idToken = await user.getIdToken();
+          await fetch('/api/subscriptions/claim-pending', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${idToken}` },
+          });
+        } catch {
+          // Não bloqueia a consulta principal caso o backend esteja temporariamente indisponível.
+        }
+
+        const subDocRef = doc(db, 'subscriptions', uid);
+        const subSnap = await getDocFromServer(subDocRef);
+        if (!isMounted) return;
+
+        if (subSnap.exists()) {
           const data = subSnap.data();
-          if (data.plan && (data.plan === 'monthly' || data.plan === 'annual')) {
+          if (isSubscriptionActive(data?.plan, data?.expiresAt)) {
             setPlan(data.plan);
-            setExpiresAt(data.expiresAt || null);
-            localStorage.setItem(
-              STORAGE_KEY,
-              JSON.stringify({ plan: data.plan, expiresAt: data.expiresAt || null })
-            );
+            setExpiresAt(data.expiresAt);
+            try {
+              localStorage.setItem(
+                userCacheKey,
+                JSON.stringify({ plan: data.plan, expiresAt: data.expiresAt, verifiedAt: new Date().toISOString() })
+              );
+            } catch {
+              // ignore
+            }
+            return;
           }
         }
+
+        setPlan('free');
+        setExpiresAt(null);
+        try {
+          localStorage.removeItem(userCacheKey);
+        } catch {
+          // ignore
+        }
       } catch (err) {
-        console.warn('Não foi possível verificar assinatura no Firestore:', err);
+        // Falha fechada: sem confirmação remota, cache local não concede PRO.
+        setPlan('free');
+        setExpiresAt(null);
+        console.warn('Verificação de assinatura remota indisponível:', err);
       }
     }
 
-    loadCloudSubscription();
+    loadRemoteSubscription();
+
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [user, currentStorageKey]);
 
-  const isPro = plan === 'monthly' || plan === 'annual';
+  // isPro rigoroso: apenas verdadeiro se plano for mensal ou anual E data for válida e futura
+  const isPro = isSubscriptionActive(plan, expiresAt);
 
-  const activatePro = async (selectedPlan: 'monthly' | 'annual', paymentMethod: string = 'PIX') => {
-    const nextMonth = new Date();
-    if (selectedPlan === 'monthly') {
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-    } else {
-      nextMonth.setFullYear(nextMonth.getFullYear() + 1);
+  // 2. VERIFICAÇÃO ATIVA DO PAGAMENTO (Bate no servidor do Firestore com getDocFromServer)
+  const verifySubscription = async (): Promise<VerificationResult> => {
+    if (!user?.uid) {
+      return {
+        active: false,
+        message: 'Para verificar sua assinatura, conecte primeiro sua conta Google.',
+      };
     }
-    const expiry = nextMonth.toISOString();
 
-    setPlan(selectedPlan);
-    setExpiresAt(expiry);
-    setIsProModalOpen(false);
-
-    const subData = {
-      plan: selectedPlan,
-      expiresAt: expiry,
-      activatedAt: new Date().toISOString(),
-      paymentMethod,
-      userId: user?.uid || 'local',
-      userEmail: user?.email || 'anonimo',
-      status: 'active',
-    };
+    setIsChecking(true);
+    const uid = user.uid;
+    const userCacheKey = `${STORAGE_KEY_PREFIX}${uid}`;
 
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan: selectedPlan, expiresAt: expiry }));
-    } catch (e) {
-      console.warn('Erro ao salvar assinatura local:', e);
+      await claimPendingSubscription();
+      const subDocRef = doc(db, 'subscriptions', uid);
+      // Força consulta direta ao servidor ignorando qualquer cache local
+      const subSnap = await getDocFromServer(subDocRef);
+
+      if (subSnap.exists()) {
+        const data = subSnap.data();
+        if (isSubscriptionActive(data?.plan, data?.expiresAt)) {
+          setPlan(data.plan);
+          setExpiresAt(data.expiresAt);
+          try {
+            localStorage.setItem(
+              userCacheKey,
+              JSON.stringify({ plan: data.plan, expiresAt: data.expiresAt, verifiedAt: new Date().toISOString() })
+            );
+          } catch {
+            // ignore
+          }
+          setIsChecking(false);
+          return {
+            active: true,
+            plan: data.plan,
+            expiresAt: data.expiresAt,
+            message: `Pagamento confirmado com sucesso! Seu plano VIP PRO está ativo até ${new Date(data.expiresAt).toLocaleDateString('pt-BR')}.`,
+          };
+        }
+      }
+
+      // Se não há documento ativo no Firestore
+      setPlan('free');
+      setExpiresAt(null);
+      try {
+        localStorage.removeItem(userCacheKey);
+      } catch {
+        // ignore
+      }
+      setIsChecking(false);
+      return {
+        active: false,
+        message: 'Aguardando confirmação do pagamento pelo gateway da Kiwify. Se você acabou de pagar no cartão ou PIX, aguarde alguns instantes e tente novamente.',
+      };
+    } catch (e: any) {
+      setIsChecking(false);
+      return {
+        active: false,
+        message: 'Não foi possível contatar o servidor de assinaturas no momento. Verifique sua conexão e tente novamente.',
+      };
+    }
+  };
+
+  // 3. CONCESSÃO ADMINISTRATIVA REAL NO FIRESTORE (Apenas administradores autenticados)
+  const adminGrantSubscription = async (
+    targetUid?: string,
+    selectedPlan: 'monthly' | 'annual' = 'monthly'
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!isAdmin) {
+      return {
+        success: false,
+        message: 'Acesso negado: apenas administradores autorizados podem emitir assinaturas.',
+      };
     }
 
-    // Salva na nuvem no Firestore se o usuário estiver logado
-    if (user?.uid) {
-      try {
-        await setDoc(doc(db, 'subscriptions', user.uid), subData, { merge: true });
-      } catch (err) {
-        console.warn('Erro ao salvar assinatura no Firestore:', err);
+    const uidToGrant = targetUid || user?.uid;
+    if (!uidToGrant) {
+      return {
+        success: false,
+        message: 'UID de usuário inválido para concessão.',
+      };
+    }
+
+    const nextDate = new Date();
+    if (selectedPlan === 'monthly') {
+      nextDate.setMonth(nextDate.getMonth() + 1);
+    } else {
+      nextDate.setFullYear(nextDate.getFullYear() + 1);
+    }
+    const expiry = nextDate.toISOString();
+
+    try {
+      const subDocRef = doc(db, 'subscriptions', uidToGrant);
+      // Grava no Firestore através da regra isAdmin() autorizada
+      await setDoc(
+        subDocRef,
+        {
+          plan: selectedPlan,
+          expiresAt: expiry,
+          updatedAt: new Date().toISOString(),
+          paymentMethod: 'Admin Override',
+          grantedBy: user?.email,
+        },
+        { merge: true }
+      );
+
+      // Se for para a conta atualmente conectada, atualiza o estado
+      if (uidToGrant === user?.uid) {
+        setPlan(selectedPlan);
+        setExpiresAt(expiry);
+        try {
+          localStorage.setItem(
+            `${STORAGE_KEY_PREFIX}${uidToGrant}`,
+            JSON.stringify({ plan: selectedPlan, expiresAt: expiry, verifiedAt: new Date().toISOString() })
+          );
+        } catch {
+          // ignore
+        }
       }
+
+      return {
+        success: true,
+        message: `Assinatura PRO (${selectedPlan}) gravada no Firestore com sucesso para ${uidToGrant}!`,
+      };
+    } catch (err: any) {
+      console.error('Erro ao gravar assinatura no Firestore:', err);
+      return {
+        success: false,
+        message: `Falha ao gravar assinatura no Firestore: ${err.message || 'Erro de permissão'}`,
+      };
     }
   };
 
   const downgradeToFree = async () => {
-    setPlan('free');
-    setExpiresAt(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      console.warn('Erro ao resetar assinatura local:', e);
-    }
-
-    if (user?.uid) {
+    if (isAdmin && user?.uid) {
       try {
         await setDoc(
           doc(db, 'subscriptions', user.uid),
-          { plan: 'free', status: 'cancelled', cancelledAt: new Date().toISOString() },
+          {
+            plan: 'free',
+            expiresAt: null,
+            status: 'admin_revoked',
+            updatedAt: new Date().toISOString(),
+            paymentMethod: 'Admin Override',
+            grantedBy: user.email,
+          },
           { merge: true }
         );
-      } catch (err) {
-        console.warn('Erro ao cancelar assinatura no Firestore:', err);
+      } catch (e) {
+        console.error('Não foi possível remover a assinatura no Firestore:', e);
+        return;
       }
+    }
+
+    setPlan('free');
+    setExpiresAt(null);
+    try {
+      localStorage.removeItem(currentStorageKey);
+    } catch (e) {
+      console.warn('Erro ao resetar assinatura local:', e);
+    }
+  };
+
+  // Stub de compatibilidade que redireciona para a verificação remota
+  const activatePro = async (selectedPlan: 'monthly' | 'annual', _paymentMethod?: string) => {
+    if (isAdmin) {
+      await adminGrantSubscription(user?.uid, selectedPlan);
+    } else {
+      await verifySubscription();
     }
   };
 
@@ -144,11 +325,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         isPro,
         plan,
         expiresAt,
+        isChecking,
         isProModalOpen,
         openProModal,
         closeProModal,
-        activatePro,
+        verifySubscription,
+        adminGrantSubscription,
         downgradeToFree,
+        activatePro,
       }}
     >
       {children}

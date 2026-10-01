@@ -772,7 +772,7 @@ export default function OverviewScreen({
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                Zero anúncios, Dante IA sem limites, importação B3 e radar de proventos por apenas R$ 9,99/mês.
+                Zero anúncios, Dante IA sem limites, importação B3 e radar de proventos por apenas R$ 9,90/mês.
               </p>
             </div>
           </div>

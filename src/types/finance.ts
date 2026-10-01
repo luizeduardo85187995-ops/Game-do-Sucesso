@@ -141,7 +141,9 @@ export interface B3BrokerConnection {
 }
 
 export interface B3IntegrationState {
-  isConnected: boolean;
+  // A carteira é configurada/importada pelo usuário. Não representa autenticação oficial com a B3.
+  isPortfolioConfigured: boolean;
+  isConnected?: boolean; // compatibilidade com telas/estados antigos; significa apenas perfil configurado
   connectedCpf?: string;
   investorName?: string;
   connectedAt?: string;
@@ -150,4 +152,5 @@ export interface B3IntegrationState {
   linkedBrokers: B3BrokerConnection[];
   autoSyncDividends: boolean;
   importedAssetsCount: number;
+  integrationMode: 'extrato_manual' | 'planilha_b3' | 'perfil_investidor';
 }

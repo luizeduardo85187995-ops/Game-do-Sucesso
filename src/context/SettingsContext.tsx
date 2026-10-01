@@ -1,4 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { db } from '../lib/firebase';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+} from 'firebase/firestore';
 
 export type AppTheme = 'cyber_dark' | 'pro_light' | 'midnight' | 'emerald';
 export type AppCurrency = 'BRL' | 'USD' | 'EUR';
@@ -16,6 +26,7 @@ export interface CustomAd {
   disclaimer?: string;
   badgeColor?: string;
   active: boolean;
+  updatedAt?: string;
 }
 
 export const DEFAULT_CUSTOM_ADS: CustomAd[] = [
@@ -54,7 +65,8 @@ export const DEFAULT_CUSTOM_ADS: CustomAd[] = [
   },
 ];
 
-export interface AppSettings {
+// Preferências Pessoais (Armazenadas estritamente no dispositivo local do usuário)
+export interface PersonalPreferences {
   theme: AppTheme;
   hideValues: boolean;
   visualEffects: boolean;
@@ -64,20 +76,27 @@ export interface AppSettings {
   budgetClosingDay: number;
   savingsTargetRate: number;
   highExpenseAlert: number;
+}
+
+// Configurações Comerciais Globais (Armazenadas e sincronizadas via Firestore na Nuvem)
+export interface CommercialSettings {
+  kiwifyMonthlyUrl: string;
+  kiwifyAnnualUrl: string;
+  checkoutUrl: string;
+  pixKey: string;
+  pixName: string;
+  adDisplayMode: AdDisplayMode;
   googleAdSenseClientId: string;
   googleAdSenseSlotId: string;
   affiliateCustomUrl: string;
-  pixKey: string;
-  pixName: string;
-  checkoutUrl: string;
-  kiwifyMonthlyUrl: string;
-  kiwifyAnnualUrl: string;
   customAds: CustomAd[];
-  adDisplayMode: AdDisplayMode;
-  adminPin: string;
+  isCloudSynced: boolean;
 }
 
+export interface AppSettings extends PersonalPreferences, CommercialSettings {}
+
 interface SettingsContextValue extends AppSettings {
+  // Ações de Preferência Pessoal
   setTheme: (theme: AppTheme) => void;
   setHideValues: (hide: boolean) => void;
   toggleHideValues: () => void;
@@ -88,24 +107,27 @@ interface SettingsContextValue extends AppSettings {
   setBudgetClosingDay: (day: number) => void;
   setSavingsTargetRate: (rate: number) => void;
   setHighExpenseAlert: (threshold: number) => void;
-  setGoogleAdSenseClientId: (id: string) => void;
-  setGoogleAdSenseSlotId: (id: string) => void;
-  setAffiliateCustomUrl: (url: string) => void;
-  setPixKey: (key: string) => void;
-  setPixName: (name: string) => void;
-  setCheckoutUrl: (url: string) => void;
-  setKiwifyMonthlyUrl: (url: string) => void;
-  setKiwifyAnnualUrl: (url: string) => void;
-  setCustomAds: (ads: CustomAd[]) => void;
-  addCustomAd: (ad: Omit<CustomAd, 'id'>) => void;
-  updateCustomAd: (id: string, ad: Partial<CustomAd>) => void;
-  deleteCustomAd: (id: string) => void;
-  setAdDisplayMode: (mode: AdDisplayMode) => void;
-  setAdminPin: (pin: string) => void;
   formatMoney: (value: number, forceShow?: boolean) => string;
+
+  // Ações Comerciais Globais (Nuvem Firestore)
+  setGoogleAdSenseClientId: (id: string) => Promise<void>;
+  setGoogleAdSenseSlotId: (id: string) => Promise<void>;
+  setAffiliateCustomUrl: (url: string) => Promise<void>;
+  setPixKey: (key: string) => Promise<void>;
+  setPixName: (name: string) => Promise<void>;
+  setCheckoutUrl: (url: string) => Promise<void>;
+  setKiwifyMonthlyUrl: (url: string) => Promise<void>;
+  setKiwifyAnnualUrl: (url: string) => Promise<void>;
+  setAdDisplayMode: (mode: AdDisplayMode) => Promise<void>;
+  updateCommercialSettings: (newSettings: Partial<CommercialSettings>) => Promise<boolean>;
+  setCustomAds: (ads: CustomAd[]) => Promise<void>;
+  addCustomAd: (ad: Omit<CustomAd, 'id'>) => Promise<string>;
+  updateCustomAd: (id: string, ad: Partial<CustomAd>) => Promise<boolean>;
+  deleteCustomAd: (id: string) => Promise<boolean>;
+  refreshCommercialFromCloud: () => Promise<void>;
 }
 
-const DEFAULT_SETTINGS: AppSettings = {
+const DEFAULT_PERSONAL_PREFERENCES: PersonalPreferences = {
   theme: 'cyber_dark',
   hideValues: false,
   visualEffects: true,
@@ -115,76 +137,82 @@ const DEFAULT_SETTINGS: AppSettings = {
   budgetClosingDay: 1,
   savingsTargetRate: 20,
   highExpenseAlert: 1500,
+};
+
+const DEFAULT_COMMERCIAL_SETTINGS: CommercialSettings = {
+  kiwifyMonthlyUrl: 'https://pay.kiwify.com.br/DCGRpFb',
+  kiwifyAnnualUrl: 'https://pay.kiwify.com.br/09lfPE1',
+  checkoutUrl: 'https://pay.kiwify.com.br/DCGRpFb',
+  pixKey: 'luizeduardo85187995@gmail.com',
+  pixName: 'Luiz Eduardo',
+  adDisplayMode: 'custom_ads',
   googleAdSenseClientId: 'ca-pub-4819281615715588',
   googleAdSenseSlotId: '',
   affiliateCustomUrl: '',
-  pixKey: 'luizeduardo85187995@gmail.com',
-  pixName: 'Luiz Eduardo',
-  checkoutUrl: 'https://pay.kiwify.com.br/DCGRpFb',
-  kiwifyMonthlyUrl: 'https://pay.kiwify.com.br/DCGRpFb',
-  kiwifyAnnualUrl: 'https://pay.kiwify.com.br/09lfPE1',
   customAds: DEFAULT_CUSTOM_ADS,
-  adDisplayMode: 'custom_ads',
-  adminPin: '2026',
+  isCloudSynced: false,
 };
 
-const STORAGE_KEY = '@financas/settings-v1';
+const PREFERENCES_STORAGE_KEY = '@financas/user_preferences_v1';
+const COMMERCIAL_CACHE_KEY = '@financas/commercial_cache_v1';
+const CUSTOM_ADS_CACHE_KEY = '@financas/custom_ads_cache_v1';
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(() => {
+  // 1. Estado de preferências pessoais locais
+  const [personal, setPersonal] = useState<PersonalPreferences>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(PREFERENCES_STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        // Ensure customAds exists and includes the Nomad ad
-        let ads: CustomAd[] = Array.isArray(parsed.customAds) && parsed.customAds.length > 0
-          ? parsed.customAds
-          : DEFAULT_CUSTOM_ADS;
-
-        const hasNomad = ads.some((a) => a.id === 'ad-nomad-luiz');
-        if (!hasNomad) {
-          ads = [DEFAULT_CUSTOM_ADS[0], ...ads];
-        }
-
-        return {
-          ...DEFAULT_SETTINGS,
-          ...parsed,
-          customAds: ads,
-          adDisplayMode: parsed.adDisplayMode || 'custom_ads',
-          adminPin: parsed.adminPin || '2026',
-        };
+        return { ...DEFAULT_PERSONAL_PREFERENCES, ...JSON.parse(saved) };
       }
     } catch {
       // fallback
     }
-    return DEFAULT_SETTINGS;
+    return DEFAULT_PERSONAL_PREFERENCES;
   });
 
-  // Save changes to localStorage
+  // 2. Estado de configurações comerciais globais (Nuvem Firestore com cache local)
+  const [commercial, setCommercial] = useState<CommercialSettings>(() => {
+    try {
+      const savedComm = localStorage.getItem(COMMERCIAL_CACHE_KEY);
+      const savedAds = localStorage.getItem(CUSTOM_ADS_CACHE_KEY);
+      let parsedComm = savedComm ? JSON.parse(savedComm) : {};
+      let parsedAds = savedAds ? JSON.parse(savedAds) : DEFAULT_CUSTOM_ADS;
+      return {
+        ...DEFAULT_COMMERCIAL_SETTINGS,
+        ...parsedComm,
+        customAds: Array.isArray(parsedAds) && parsedAds.length > 0 ? parsedAds : DEFAULT_CUSTOM_ADS,
+        isCloudSynced: false,
+      };
+    } catch {
+      return DEFAULT_COMMERCIAL_SETTINGS;
+    }
+  });
+
+  // Salva preferências pessoais no localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(personal));
     } catch {
       // ignore
     }
-  }, [settings]);
+  }, [personal]);
 
-  // Apply theme class to document element for global CSS cascading
+  // Aplica classe de tema dinamicamente
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('theme-cyber_dark', 'theme-pro_light', 'theme-midnight', 'theme-emerald');
-    root.classList.add(`theme-${settings.theme}`);
-    if (settings.theme === 'pro_light') {
+    root.classList.add(`theme-${personal.theme}`);
+    if (personal.theme === 'pro_light') {
       root.classList.remove('dark');
       root.classList.add('light');
     } else {
       root.classList.add('dark');
       root.classList.remove('light');
     }
-    
-    // Set theme-color meta tag for mobile status bar
+
     const themeColors: Record<AppTheme, string> = {
       cyber_dark: '#030712',
       pro_light: '#f8fafc',
@@ -193,67 +221,262 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     };
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
-      metaThemeColor.setAttribute('content', themeColors[settings.theme] || '#030712');
+      metaThemeColor.setAttribute('content', themeColors[personal.theme] || '#030712');
     }
-  }, [settings.theme]);
+  }, [personal.theme]);
 
-  const setTheme = (theme: AppTheme) => setSettings((s) => ({ ...s, theme }));
-  const setHideValues = (hideValues: boolean) => setSettings((s) => ({ ...s, hideValues }));
-  const toggleHideValues = () => setSettings((s) => ({ ...s, hideValues: !s.hideValues }));
-  const setVisualEffects = (visualEffects: boolean) => setSettings((s) => ({ ...s, visualEffects }));
-  const setSoundEffects = (soundEffects: boolean) => setSettings((s) => ({ ...s, soundEffects }));
-  const setCompactDensity = (compactDensity: boolean) => setSettings((s) => ({ ...s, compactDensity }));
-  const setCurrency = (currency: AppCurrency) => setSettings((s) => ({ ...s, currency }));
-  const setBudgetClosingDay = (budgetClosingDay: number) => setSettings((s) => ({ ...s, budgetClosingDay }));
-  const setSavingsTargetRate = (savingsTargetRate: number) => setSettings((s) => ({ ...s, savingsTargetRate }));
-  const setHighExpenseAlert = (highExpenseAlert: number) => setSettings((s) => ({ ...s, highExpenseAlert }));
-  const setGoogleAdSenseClientId = (googleAdSenseClientId: string) => setSettings((s) => ({ ...s, googleAdSenseClientId }));
-  const setGoogleAdSenseSlotId = (googleAdSenseSlotId: string) => setSettings((s) => ({ ...s, googleAdSenseSlotId }));
-  const setAffiliateCustomUrl = (affiliateCustomUrl: string) => setSettings((s) => ({ ...s, affiliateCustomUrl }));
-  const setPixKey = (pixKey: string) => setSettings((s) => ({ ...s, pixKey }));
-  const setPixName = (pixName: string) => setSettings((s) => ({ ...s, pixName }));
-  const setCheckoutUrl = (checkoutUrl: string) => setSettings((s) => ({ ...s, checkoutUrl }));
-  const setKiwifyMonthlyUrl = (kiwifyMonthlyUrl: string) => setSettings((s) => ({ ...s, kiwifyMonthlyUrl }));
-  const setKiwifyAnnualUrl = (kiwifyAnnualUrl: string) => setSettings((s) => ({ ...s, kiwifyAnnualUrl }));
-  const setAdminPin = (adminPin: string) => setSettings((s) => ({ ...s, adminPin }));
-  const setAdDisplayMode = (adDisplayMode: AdDisplayMode) => setSettings((s) => ({ ...s, adDisplayMode }));
+  // 3. SINCRONIZAÇÃO EM TEMPO REAL COM O FIRESTORE (Configurações Comerciais e Anúncios Globais)
+  useEffect(() => {
+    let isSubscribed = true;
 
-  const setCustomAds = (customAds: CustomAd[]) => setSettings((s) => ({ ...s, customAds }));
+    // A. Ouvinte para /config/commercial
+    const commercialDocRef = doc(db, 'config', 'commercial');
+    const unsubCommercial = onSnapshot(
+      commercialDocRef,
+      (docSnap) => {
+        if (!isSubscribed) return;
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setCommercial((prev) => {
+            const updated = {
+              ...prev,
+              kiwifyMonthlyUrl: data.kiwifyMonthlyUrl ?? prev.kiwifyMonthlyUrl,
+              kiwifyAnnualUrl: data.kiwifyAnnualUrl ?? prev.kiwifyAnnualUrl,
+              checkoutUrl: data.checkoutUrl ?? prev.checkoutUrl,
+              pixKey: data.pixKey ?? prev.pixKey,
+              pixName: data.pixName ?? prev.pixName,
+              adDisplayMode: data.adDisplayMode ?? prev.adDisplayMode,
+              googleAdSenseClientId: data.googleAdSenseClientId ?? prev.googleAdSenseClientId,
+              googleAdSenseSlotId: data.googleAdSenseSlotId ?? prev.googleAdSenseSlotId,
+              affiliateCustomUrl: data.affiliateCustomUrl ?? prev.affiliateCustomUrl,
+              isCloudSynced: true,
+            };
+            try {
+              localStorage.setItem(COMMERCIAL_CACHE_KEY, JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+        }
+      },
+      (err) => {
+        console.warn('Ouvinte de configurações comerciais offline ou restrito:', err);
+      }
+    );
 
-  const addCustomAd = (newAdData: Omit<CustomAd, 'id'>) => {
+    // B. Ouvinte para /customAds (Coleção Global de Anúncios)
+    const adsColRef = collection(db, 'customAds');
+    const unsubAds = onSnapshot(
+      adsColRef,
+      (querySnap) => {
+        if (!isSubscribed) return;
+        if (!querySnap.empty) {
+          const loadedAds: CustomAd[] = [];
+          querySnap.forEach((d) => {
+            const adData = d.data() as CustomAd;
+            loadedAds.push({ ...adData, id: d.id });
+          });
+          setCommercial((prev) => {
+            const updated = { ...prev, customAds: loadedAds, isCloudSynced: true };
+            try {
+              localStorage.setItem(CUSTOM_ADS_CACHE_KEY, JSON.stringify(loadedAds));
+            } catch {}
+            return updated;
+          });
+        }
+      },
+      (err) => {
+        console.warn('Ouvinte de anúncios customizados offline ou restrito:', err);
+      }
+    );
+
+    return () => {
+      isSubscribed = false;
+      unsubCommercial();
+      unsubAds();
+    };
+  }, []);
+
+  const refreshCommercialFromCloud = useCallback(async () => {
+    try {
+      const commSnap = await getDoc(doc(db, 'config', 'commercial'));
+      if (commSnap.exists()) {
+        const data = commSnap.data();
+        setCommercial((prev) => ({
+          ...prev,
+          ...data,
+          isCloudSynced: true,
+        }));
+      }
+
+      const adsSnap = await getDocs(collection(db, 'customAds'));
+      if (!adsSnap.empty) {
+        const loaded: CustomAd[] = [];
+        adsSnap.forEach((d) => loaded.push({ ...(d.data() as CustomAd), id: d.id }));
+        setCommercial((prev) => ({
+          ...prev,
+          customAds: loaded,
+          isCloudSynced: true,
+        }));
+      }
+    } catch (e) {
+      console.warn('Falha ao atualizar configurações comerciais da nuvem:', e);
+    }
+  }, []);
+
+  // Setters de Preferências Pessoais
+  const setTheme = (theme: AppTheme) => setPersonal((p) => ({ ...p, theme }));
+  const setHideValues = (hideValues: boolean) => setPersonal((p) => ({ ...p, hideValues }));
+  const toggleHideValues = () => setPersonal((p) => ({ ...p, hideValues: !p.hideValues }));
+  const setVisualEffects = (visualEffects: boolean) => setPersonal((p) => ({ ...p, visualEffects }));
+  const setSoundEffects = (soundEffects: boolean) => setPersonal((p) => ({ ...p, soundEffects }));
+  const setCompactDensity = (compactDensity: boolean) => setPersonal((p) => ({ ...p, compactDensity }));
+  const setCurrency = (currency: AppCurrency) => setPersonal((p) => ({ ...p, currency }));
+  const setBudgetClosingDay = (budgetClosingDay: number) => setPersonal((p) => ({ ...p, budgetClosingDay }));
+  const setSavingsTargetRate = (savingsTargetRate: number) => setPersonal((p) => ({ ...p, savingsTargetRate }));
+  const setHighExpenseAlert = (highExpenseAlert: number) => setPersonal((p) => ({ ...p, highExpenseAlert }));
+
+  // Setters de Configurações Comerciais Globais (Nuvem Firestore)
+  const updateCommercialSettings = async (newFields: Partial<CommercialSettings>): Promise<boolean> => {
+    setCommercial((prev) => {
+      const updated = { ...prev, ...newFields };
+      try {
+        localStorage.setItem(COMMERCIAL_CACHE_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      const commRef = doc(db, 'config', 'commercial');
+      await setDoc(
+        commRef,
+        {
+          ...newFields,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return true;
+    } catch (err) {
+      console.warn('Configuração salva localmente; erro ao enviar para nuvem:', err);
+      return false;
+    }
+  };
+
+  const setGoogleAdSenseClientId = async (googleAdSenseClientId: string) => {
+    await updateCommercialSettings({ googleAdSenseClientId });
+  };
+
+  const setGoogleAdSenseSlotId = async (googleAdSenseSlotId: string) => {
+    await updateCommercialSettings({ googleAdSenseSlotId });
+  };
+
+  const setAffiliateCustomUrl = async (affiliateCustomUrl: string) => {
+    await updateCommercialSettings({ affiliateCustomUrl });
+  };
+
+  const setPixKey = async (pixKey: string) => {
+    await updateCommercialSettings({ pixKey });
+  };
+
+  const setPixName = async (pixName: string) => {
+    await updateCommercialSettings({ pixName });
+  };
+
+  const setCheckoutUrl = async (checkoutUrl: string) => {
+    await updateCommercialSettings({ checkoutUrl });
+  };
+
+  const setKiwifyMonthlyUrl = async (kiwifyMonthlyUrl: string) => {
+    await updateCommercialSettings({ kiwifyMonthlyUrl });
+  };
+
+  const setKiwifyAnnualUrl = async (kiwifyAnnualUrl: string) => {
+    await updateCommercialSettings({ kiwifyAnnualUrl });
+  };
+
+  const setAdDisplayMode = async (adDisplayMode: AdDisplayMode) => {
+    await updateCommercialSettings({ adDisplayMode });
+  };
+
+  const setCustomAds = async (customAds: CustomAd[]) => {
+    setCommercial((prev) => ({ ...prev, customAds }));
+    try {
+      localStorage.setItem(CUSTOM_ADS_CACHE_KEY, JSON.stringify(customAds));
+    } catch {}
+  };
+
+  const addCustomAd = async (newAdData: Omit<CustomAd, 'id'>): Promise<string> => {
+    const newId = `ad-${Date.now()}`;
     const newAd: CustomAd = {
       ...newAdData,
-      id: `ad-${Date.now()}`,
+      id: newId,
+      updatedAt: new Date().toISOString(),
     };
-    setSettings((s) => ({ ...s, customAds: [newAd, ...s.customAds] }));
+
+    setCommercial((prev) => {
+      const updated = [newAd, ...prev.customAds];
+      try {
+        localStorage.setItem(CUSTOM_ADS_CACHE_KEY, JSON.stringify(updated));
+      } catch {}
+      return { ...prev, customAds: updated };
+    });
+
+    try {
+      await setDoc(doc(db, 'customAds', newId), newAd);
+    } catch (err) {
+      console.warn('Anúncio salvo em cache local; erro ao gravar no Firestore:', err);
+    }
+
+    return newId;
   };
 
-  const updateCustomAd = (id: string, updatedFields: Partial<CustomAd>) => {
-    setSettings((s) => ({
-      ...s,
-      customAds: s.customAds.map((ad) => (ad.id === id ? { ...ad, ...updatedFields } : ad)),
-    }));
+  const updateCustomAd = async (id: string, updatedFields: Partial<CustomAd>): Promise<boolean> => {
+    setCommercial((prev) => {
+      const updated = prev.customAds.map((ad) =>
+        ad.id === id ? { ...ad, ...updatedFields, updatedAt: new Date().toISOString() } : ad
+      );
+      try {
+        localStorage.setItem(CUSTOM_ADS_CACHE_KEY, JSON.stringify(updated));
+      } catch {}
+      return { ...prev, customAds: updated };
+    });
+
+    try {
+      await setDoc(doc(db, 'customAds', id), { ...updatedFields, updatedAt: new Date().toISOString() }, { merge: true });
+      return true;
+    } catch (err) {
+      console.warn('Erro ao atualizar anúncio no Firestore:', err);
+      return false;
+    }
   };
 
-  const deleteCustomAd = (id: string) => {
-    setSettings((s) => ({
-      ...s,
-      customAds: s.customAds.filter((ad) => ad.id !== id),
-    }));
+  const deleteCustomAd = async (id: string): Promise<boolean> => {
+    setCommercial((prev) => {
+      const updated = prev.customAds.filter((ad) => ad.id !== id);
+      try {
+        localStorage.setItem(CUSTOM_ADS_CACHE_KEY, JSON.stringify(updated));
+      } catch {}
+      return { ...prev, customAds: updated };
+    });
+
+    try {
+      await deleteDoc(doc(db, 'customAds', id));
+      return true;
+    } catch (err) {
+      console.warn('Erro ao excluir anúncio do Firestore:', err);
+      return false;
+    }
   };
 
   const formatMoney = (value: number, forceShow: boolean = false): string => {
-    if (settings.hideValues && !forceShow) {
+    if (personal.hideValues && !forceShow) {
       return '••••••';
     }
-
     if (!Number.isFinite(value)) {
-      return settings.currency === 'BRL' ? 'R$ 0,00' : '$ 0.00';
+      return personal.currency === 'BRL' ? 'R$ 0,00' : '$ 0.00';
     }
-
-    const currencyCode = settings.currency;
+    const currencyCode = personal.currency;
     const locale = currencyCode === 'BRL' ? 'pt-BR' : currencyCode === 'EUR' ? 'de-DE' : 'en-US';
-
     return value.toLocaleString(locale, {
       style: 'currency',
       currency: currencyCode,
@@ -265,7 +488,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   return (
     <SettingsContext.Provider
       value={{
-        ...settings,
+        ...personal,
+        ...commercial,
         setTheme,
         setHideValues,
         toggleHideValues,
@@ -276,6 +500,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setBudgetClosingDay,
         setSavingsTargetRate,
         setHighExpenseAlert,
+        formatMoney,
         setGoogleAdSenseClientId,
         setGoogleAdSenseSlotId,
         setAffiliateCustomUrl,
@@ -284,13 +509,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setCheckoutUrl,
         setKiwifyMonthlyUrl,
         setKiwifyAnnualUrl,
+        setAdDisplayMode,
+        updateCommercialSettings,
         setCustomAds,
         addCustomAd,
         updateCustomAd,
         deleteCustomAd,
-        setAdDisplayMode,
-        setAdminPin,
-        formatMoney,
+        refreshCommercialFromCloud,
       }}
     >
       {children}

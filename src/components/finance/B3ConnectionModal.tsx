@@ -89,7 +89,7 @@ export default function B3ConnectionModal({ isOpen, onClose }: B3ConnectionModal
 
     try {
       await connectB3Account(cpf, investorName, selectedBrokers);
-      setSuccessMessage('CPF vinculado à Área do Investidor B3! Para carregar seus ativos reais, faça upload do extrato ou cole seu texto na aba ao lado.');
+      setSuccessMessage('Perfil de investidor salvo. Para carregar seus ativos reais, faça upload do extrato ou cole seu texto na aba ao lado.');
       setTimeout(() => {
         setSuccessMessage(null);
       }, 4000);
@@ -648,7 +648,7 @@ export default function B3ConnectionModal({ isOpen, onClose }: B3ConnectionModal
                       </div>
                       <div>
                         <div className="text-sm font-black text-white">
-                          CPF Registrado na B3
+                          Perfil de investidor cadastrado
                         </div>
                         <div className="text-xs text-emerald-400 font-mono">
                           CPF: {b3Integration.connectedCpf} • {b3Integration.investorName}
@@ -657,7 +657,7 @@ export default function B3ConnectionModal({ isOpen, onClose }: B3ConnectionModal
                     </div>
 
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold uppercase tracking-wider">
-                      ATIVO
+                      CONFIGURADO
                     </span>
                   </div>
 
@@ -693,7 +693,7 @@ export default function B3ConnectionModal({ isOpen, onClose }: B3ConnectionModal
                   </div>
                 </div>
 
-                {/* Corretoras Conectadas */}
+                {/* Corretoras Cadastradas */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
                     // Suas Corretoras Cadastradas

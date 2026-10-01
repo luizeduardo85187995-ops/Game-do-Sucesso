@@ -26,7 +26,6 @@ import {
   Sliders,
   CheckCircle2,
   Lock,
-  Unlock,
   ExternalLink,
   DollarSign,
   Megaphone,
@@ -84,10 +83,9 @@ export default function SettingsScreen({
     setKiwifyMonthlyUrl,
     kiwifyAnnualUrl,
     setKiwifyAnnualUrl,
-    adminPin,
   } = useSettings();
 
-  const { isPro, openProModal, activatePro, downgradeToFree } = useSubscription();
+  const { isPro, openProModal, adminGrantSubscription, downgradeToFree } = useSubscription();
 
   const {
     transactions,
@@ -105,13 +103,10 @@ export default function SettingsScreen({
     triggerCloudSync,
   } = useFinance();
 
-  const { user } = useAuth();
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
-  const [adminPinInput, setAdminPinInput] = useState('');
-  const [adminPinError, setAdminPinError] = useState(false);
+  const { user, isAdmin } = useAuth();
   const [adminSubSection, setAdminSubSection] = useState<'ads' | 'pix' | 'adsense' | 'backup'>('ads');
 
-  const isOwner = user?.email === 'luizeduardo85187995@gmail.com' || adminUnlocked;
+  const isOwner = isAdmin;
 
   // Active section tab inside settings
   const [activeSection, setActiveSection] = useState<'appearance' | 'financial' | 'data' | 'cloud' | 'about' | 'admin'>('appearance');
@@ -1003,6 +998,7 @@ export default function SettingsScreen({
       )}
 
       {/* SECTION: PAINEL DO DONO & MONETIZAÇÃO (EXCLUSIVO PARA O ADMINISTRADOR) */}
+      {/* SECTION: PAINEL DO DONO & MONETIZAÇÃO (EXCLUSIVO PARA O ADMINISTRADOR) */}
       {activeSection === 'admin' && !isOwner && (
         <div className="rounded-3xl bg-slate-900/90 border border-cyan-500/30 p-6 sm:p-8 max-w-xl mx-auto shadow-2xl space-y-6">
           <div className="flex items-center gap-3.5">
@@ -1013,60 +1009,26 @@ export default function SettingsScreen({
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 Acesso Exclusivo do Administrador
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  RESTRITO
+                  FIREBASE AUTH
                 </span>
               </h3>
               <p className="text-xs text-slate-300 mt-0.5">
-                Esta área é restrita ao proprietário do sistema para configurar anúncios diretos (Nomad e parceiros), chaves PIX e monetização.
+                Esta área só é liberada para contas Google administrativas autorizadas. O antigo PIN mestre foi removido por segurança.
               </p>
             </div>
           </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (adminPinInput.trim() === (adminPin || '2026') || adminPinInput.trim() === '2026') {
-                setAdminUnlocked(true);
-                setAdminPinError(false);
-                setAdminPinInput('');
-              } else {
-                setAdminPinError(true);
-              }
-            }}
-            className="space-y-4"
-          >
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-slate-300 block">
-                Digite o PIN Mestre (Padrão: 2026)
-              </label>
-              <input
-                type="password"
-                maxLength={8}
-                value={adminPinInput}
-                onChange={(e) => {
-                  setAdminPinInput(e.target.value);
-                  setAdminPinError(false);
-                }}
-                placeholder="PIN Mestre (ex: 2026)"
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-cyan-500/30 text-white font-mono text-center text-lg tracking-widest focus:border-cyan-400 focus:outline-none"
-                autoFocus
-              />
-              {adminPinError && (
-                <p className="text-xs text-rose-400 flex items-center gap-1 font-mono mt-1">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>PIN incorreto. Use o PIN mestre configurado ou entre com a conta Google de proprietário.</span>
-                </p>
-              )}
-            </div>
-
+          <div className="p-3.5 rounded-2xl bg-black/30 border border-white/10 text-xs text-slate-300">
+            Conta atual: <strong className="text-white">{user?.email || 'não autenticado'}</strong>
+          </div>
+          {onNavigateToGoogle && (
             <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-xs font-mono tracking-wider uppercase transition-all shadow-lg shadow-cyan-500/20 active:scale-95 flex items-center justify-center gap-2"
+              type="button"
+              onClick={onNavigateToGoogle}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-xs font-mono tracking-wider uppercase transition-all shadow-lg shadow-cyan-500/20 active:scale-95"
             >
-              <Unlock className="w-4 h-4" />
-              <span>Desbloquear Painel de Administrador</span>
+              Ir para Login Google
             </button>
-          </form>
+          )}
         </div>
       )}
 
@@ -1087,7 +1049,7 @@ export default function SettingsScreen({
                     </span>
                   </h3>
                   <p className="text-xs text-slate-300">
-                    Acesso exclusivo vinculado ao e-mail <strong>{user?.email || 'Acesso via PIN Mestre'}</strong>. Invisível para visitantes comuns.
+                    Acesso exclusivo vinculado ao e-mail <strong>{user?.email || 'Conta administrativa'}</strong>. Invisível para visitantes comuns.
                   </p>
                 </div>
               </div>
@@ -1102,20 +1064,6 @@ export default function SettingsScreen({
                   Sua Conta: {isPro ? 'VIP PRO ATIVO' : 'MODO GRATUITO'}
                 </span>
 
-                {adminUnlocked && !user?.email && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdminUnlocked(false);
-                      setActiveSection('appearance');
-                    }}
-                    className="px-2.5 py-1 rounded-xl text-xs font-mono bg-white/5 hover:bg-white/10 text-slate-400 border border-white/10 flex items-center gap-1"
-                    title="Bloquear painel"
-                  >
-                    <Lock className="w-3 h-3" />
-                    <span>Bloquear</span>
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1129,7 +1077,7 @@ export default function SettingsScreen({
                 {!isPro ? (
                   <button
                     type="button"
-                    onClick={() => activatePro('annual', 'Admin Test')}
+                    onClick={() => adminGrantSubscription(user?.uid, 'annual')}
                     className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow"
                   >
                     <span>Ativar VIP PRO na Minha Conta</span>
@@ -1212,7 +1160,7 @@ export default function SettingsScreen({
 
           {/* SUB-SECTION 1: CUSTOM ADS (NOMAD & PARTNERS) */}
           {adminSubSection === 'ads' && (
-            <CustomAdsAdminPanel isOwnerAuthenticated={true} />
+            <CustomAdsAdminPanel />
           )}
 
           {/* SUB-SECTION 2: PIX & KIWIFY SETTINGS */}
@@ -1276,7 +1224,7 @@ export default function SettingsScreen({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                 <div className="space-y-1.5">
                   <label className="text-xs font-mono font-bold text-slate-300 block">
-                    Link Kiwify Plano Mensal (R$ 9,99 / R$ 14,90)
+                    Link Kiwify Plano Mensal (R$ 9,90 no 1º mês / R$ 14,90 depois)
                   </label>
                   <input
                     type="url"
@@ -1292,7 +1240,7 @@ export default function SettingsScreen({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-mono font-bold text-slate-300 block">
-                    Link Kiwify Plano Anual (R$ 119,90)
+                    Link Kiwify Plano Anual (R$ 119,00)
                   </label>
                   <input
                     type="url"

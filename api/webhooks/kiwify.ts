@@ -44,9 +44,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const target = await resolveTargetIdentity(data.customerEmail, data.customUid);
     const plan = determinePlan(data);
-    const result = await processSubscriptionEvent(action, target, plan, data, rawBody);
+    if (data.checkoutCode && !plan) {
+      // Checkout informado, mas não pertence a um dos planos PRO conhecidos.
+      return Response.json({ success: true, status: 'ignored_unknown_checkout', event: data.event || 'unknown' });
+    }
+    if (action === 'grant' && !plan) {
+      // Nunca concede PRO se não conseguimos reconhecer com segurança o plano.
+      return Response.json({ success: true, status: 'ignored_unknown_plan', event: data.event || 'unknown' });
+    }
+
+    const target = await resolveTargetIdentity(data.customerEmail, data.customUid);
+    // O plano só altera estado em eventos de concessão. Para revogação/cancelamento, o valor abaixo é neutro.
+    const effectivePlan = plan || 'monthly';
+    const result = await processSubscriptionEvent(action, target, effectivePlan, data, rawBody);
     return Response.json({
       success: true,
       status: result.duplicate ? 'duplicate_ignored' : action,

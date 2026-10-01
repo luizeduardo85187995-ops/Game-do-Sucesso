@@ -20,9 +20,9 @@ import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ProModal() {
-  const { isPro, plan, isProModalOpen, closeProModal, activatePro, downgradeToFree } = useSubscription();
+  const { isPro, plan, isProModalOpen, closeProModal, verifySubscription, adminGrantSubscription, isChecking, downgradeToFree } = useSubscription();
   const { kiwifyMonthlyUrl, kiwifyAnnualUrl } = useSettings();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -34,12 +34,13 @@ export default function ProModal() {
   const annualUrl = kiwifyAnnualUrl || 'https://pay.kiwify.com.br/09lfPE1';
   const targetKiwifyUrl = selectedPlan === 'monthly' ? monthlyUrl : annualUrl;
 
-  const isOwner = user?.email === 'luizeduardo85187995@gmail.com';
+  const isOwner = isAdmin;
 
   const handleAdminDirectActivation = async () => {
     setIsProcessing(true);
     try {
-      await activatePro(selectedPlan, 'Kiwify Recorrente');
+      const result = await adminGrantSubscription(user?.uid, selectedPlan);
+      if (!result.success) throw new Error(result.message);
       setSuccessNote(`VIP PRO ativado com sucesso para a conta ${user?.email || 'atual'}!`);
       setTimeout(() => {
         setSuccessNote(null);
@@ -47,6 +48,25 @@ export default function ProModal() {
       }, 1800);
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVerifyPayment = async () => {
+    setIsProcessing(true);
+    setSuccessNote(null);
+    try {
+      const result = await verifySubscription();
+      setSuccessNote(result.message);
+      if (result.active) {
+        setTimeout(() => {
+          setSuccessNote(null);
+          closeProModal();
+        }, 1800);
+      }
+    } catch (e: any) {
+      setSuccessNote(e?.message || 'Não foi possível verificar o pagamento agora.');
     } finally {
       setIsProcessing(false);
     }
@@ -151,7 +171,7 @@ export default function ProModal() {
           </span>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Monthly Plan (Offer First Month R$ 9,99) */}
+            {/* Monthly Plan (Offer First Month R$ 9,90) */}
             <div
               onClick={() => setSelectedPlan('monthly')}
               className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
@@ -161,7 +181,7 @@ export default function ProModal() {
               }`}
             >
               <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-[9px] uppercase tracking-wider shadow">
-                1º MÊS POR R$ 9,99
+                1º MÊS POR R$ 9,90
               </span>
 
               <div className="flex items-center justify-between">
@@ -181,7 +201,7 @@ export default function ProModal() {
               <div className="mt-3">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-xs text-slate-400 line-through">R$ 14,90</span>
-                  <span className="text-2xl font-black text-emerald-400 font-mono">R$ 9,99</span>
+                  <span className="text-2xl font-black text-emerald-400 font-mono">R$ 9,90</span>
                   <span className="text-xs text-slate-400">/1º mês</span>
                 </div>
                 <span className="text-[10px] text-slate-300 font-mono block mt-0.5">
@@ -219,11 +239,11 @@ export default function ProModal() {
 
               <div className="mt-3">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-black text-white font-mono">R$ 9,99</span>
-                  <span className="text-xs text-slate-400">/mês</span>
+                  <span className="text-2xl font-black text-white font-mono">R$ 119,00</span>
+                  <span className="text-xs text-slate-400">/ano</span>
                 </div>
                 <span className="text-[10px] text-amber-300 font-mono block mt-0.5">
-                  Cobrado R$ 119,90 anualmente no cartão
+                  Cobrança anual de R$ 119,00 no cartão
                 </span>
               </div>
             </div>
@@ -234,7 +254,7 @@ export default function ProModal() {
         <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-950/60 to-purple-950/40 border border-emerald-500/30 space-y-3.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-300">
-              Plano selecionado: <strong className="text-white">{selectedPlan === 'monthly' ? 'Mensal (R$ 9,99 no 1º mês)' : 'Anual (R$ 119,90/ano)'}</strong>
+              Plano selecionado: <strong className="text-white">{selectedPlan === 'monthly' ? 'Mensal (R$ 9,90 no 1º mês)' : 'Anual (R$ 119,00/ano)'}</strong>
             </span>
             <span className="text-emerald-400 font-mono font-bold flex items-center gap-1">
               <Lock className="w-3 h-3" />
@@ -252,6 +272,17 @@ export default function ProModal() {
             <span>Assinar com Cobrança Automática na Kiwify</span>
             <ExternalLink className="w-4 h-4 ml-1" />
           </a>
+
+          {user && (
+            <button
+              type="button"
+              onClick={handleVerifyPayment}
+              disabled={isProcessing || isChecking}
+              className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-bold text-xs transition-all disabled:opacity-60"
+            >
+              {isProcessing || isChecking ? 'Verificando pagamento...' : 'Já paguei — verificar minha assinatura'}
+            </button>
+          )}
 
           <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400">
             <span className="flex items-center gap-1">
