@@ -23,7 +23,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { callPollinationsAI, buildHistory, ChatMessage } from '../../lib/pollinations';
+import { callDanteAI, buildHistory, DanteMode } from '../../lib/danteAI';
+import { useAuth } from '../../context/AuthContext';
 import { formatBRL, formatDateBR } from '../../utils/format';
 import { useSubscription } from '../../context/SubscriptionContext';
 import ProFeatureLock from '../subscription/ProFeatureLock';
@@ -59,12 +60,17 @@ interface Message {
 
 export default function AIChatScreen() {
   const { isPro } = useSubscription();
+  const { user } = useAuth();
   const {
     transactions,
     investments,
     savingGoals,
     metrics,
     bankAccounts,
+    dividendEvents,
+    goals,
+    base,
+    investmentFocus,
     expenseCategories,
     incomeCategories,
     categoryIcons,
@@ -75,23 +81,26 @@ export default function AIChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [danteMode, setDanteMode] = useState<DanteMode>('equilibrado');
+  const [historyReady, setHistoryReady] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadedHistoryIdentityRef = useRef<string | null>(null);
+
+  const identityKey = user?.uid || 'guest';
+  const historyStorageKey = `@dante/history_v2_${identityKey}`;
+  const modeStorageKey = `@dante/mode_v2_${identityKey}`;
 
   // Financial Context
   const financeContext = {
-    balance: metrics.balance,
-    monthIncome: metrics.monthIncome,
-    monthExpense: metrics.monthExpense,
-    monthNet: metrics.monthNet,
-    investedTotal: metrics.investedTotal,
-    estimatedPassiveIncome: metrics.estimatedPassiveIncome,
-    futureExpenses: metrics.futureExpenses,
-    nextMonthExpenses: metrics.nextMonthExpenses,
-    projectedBalance: metrics.projectedBalance,
-    realFreeBalance: metrics.realFreeBalance,
+    ...metrics,
     transactions,
+    bankAccounts,
     investments,
     savingGoals,
+    dividendEvents,
+    goals,
+    base,
+    investmentFocus,
   };
 
   // Preview do comando digitado ao vivo para feedback instantâneo
@@ -100,55 +109,100 @@ export default function AIChatScreen() {
     return extractTransactionIntent(input, expenseCategories, incomeCategories, bankAccounts);
   }, [input, expenseCategories, incomeCategories, bankAccounts]);
 
-  // Initial greeting with dynamic diagnostic
-  useEffect(() => {
-    let situacaoTexto = '';
+  const buildWelcomeMessage = (): Message => {
     const committedFuture = metrics.nextMonthExpenses || metrics.futureExpenses || 0;
-    const isNegative = metrics.balance < 0;
-    const isPositive = metrics.balance > 0;
-    const isZero = metrics.balance === 0;
+    const balance = metrics.balance;
+    const intro =
+      transactions.length === 0
+        ? `Oi! Sou o **Dante**, seu consultor e treinador financeiro 🐾\n\nMeu trabalho é te ajudar a criar bons hábitos com dinheiro, não só responder perguntas. Conforme você registra sua vida financeira, eu consigo enxergar padrões, desperdícios, metas e evolução.\n\nPode começar simples: *"onde estou errando?"*, *"quanto posso gastar por dia?"* ou *"lança 150 de internet"*.`
+        : `Oi! Sou o **Dante**, seu consultor e treinador financeiro 🐾\n\nJá tenho acesso ao contexto do seu app nesta conversa: **${transactions.length} lançamentos**, **${savingGoals.length} meta(s)** e **${investments.length} investimento(s)**.\n\n• Saldo atual: **${formatBRL(balance)}**\n• Entradas no mês: **${formatBRL(metrics.monthIncome)}**\n• Saídas no mês: **${formatBRL(metrics.monthExpense)}**${committedFuture > 0 ? `\n• Despesas futuras cadastradas: **${formatBRL(committedFuture)}**` : ''}\n\nMe pergunte algo que eu vou analisar seu comportamento financeiro de verdade, usando seus dados — não conselho genérico.`;
 
-    let saldoLinha = '';
-    let sobraLinha = '';
+    return {
+      id: 'welcome',
+      role: 'assistant',
+      content: intro,
+      timestamp: new Date(),
+    };
+  };
 
-    if (isNegative) {
-      const deficit = Math.abs(metrics.balance);
-      saldoLinha = `• 🔴 Saldo em conta: **-${formatBRL(deficit)}** (no vermelho / cheque especial)`;
-      sobraLinha = `• ⚠️ Saldo livre disponível: **R$ 0,00** (Esgotado - você está com um déficit de ${formatBRL(deficit)})`;
-      situacaoTexto = `🔴 Suas despesas cadastradas ultrapassaram as entradas em **${formatBRL(deficit)}**. É hora de estancar gastos supérfluos e avaliar novas entradas para zerar esse negativo com calma.`;
-    } else if (isPositive) {
-      saldoLinha = `• 💰 Saldo em conta: **${formatBRL(metrics.balance)}**`;
-      sobraLinha = `• 🛡️ Saldo líquido livre disponível: **${formatBRL(metrics.balance)}** (sobra real)`;
-      if (committedFuture > 0) {
-        situacaoTexto = `🟢 Você já lançou e abateu **${formatBRL(committedFuture)}** em despesas (inclusive do próximo mês) e ainda tem **${formatBRL(metrics.balance)} livres sobrando** na conta! Excelente controle!`;
+  // Carrega preferência de personalidade e histórico do Dante por usuário.
+  useEffect(() => {
+    loadedHistoryIdentityRef.current = null;
+    setHistoryReady(false);
+
+    try {
+      const savedMode = localStorage.getItem(modeStorageKey);
+      if (savedMode === 'vira_homem' || savedMode === 'equilibrado') {
+        setDanteMode(savedMode);
       } else {
-        situacaoTexto = `🟢 Saldo positivo e livre de **${formatBRL(metrics.balance)}** nas suas contas.`;
+        setDanteMode('equilibrado');
       }
-    } else {
-      saldoLinha = `• ⚪ Saldo em conta: **R$ 0,00**`;
-      sobraLinha = `• ⚠️ Saldo livre disponível: **R$ 0,00** (Sem folga no momento)`;
-      situacaoTexto = `⚪ Saldo zerado nas contas.`;
+
+      const rawHistory = localStorage.getItem(historyStorageKey);
+      if (rawHistory) {
+        const parsed = JSON.parse(rawHistory);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const restored = parsed.slice(-30).map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp || Date.now()),
+          })) as Message[];
+          setMessages(restored);
+          loadedHistoryIdentityRef.current = identityKey;
+          setHistoryReady(true);
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('Não foi possível restaurar a conversa do Dante:', error);
     }
 
-    const futureDetails =
-      committedFuture > 0
-        ? `\n• 📋 Despesas já abatidas no saldo: **${formatBRL(committedFuture)}** (já descontadas das suas contas)\n${sobraLinha}`
-        : `\n${sobraLinha}`;
+    setMessages([buildWelcomeMessage()]);
+    loadedHistoryIdentityRef.current = identityKey;
+    setHistoryReady(true);
+  }, [identityKey]);
 
-    const initialText =
-      transactions.length === 0
-        ? `Oi! Sou o **Dante**, seu mentor e parceiro inteligente aqui no **Minhas Finanças** 🐾⚡\n\nAgora sou **100% automático e proativo**: você pode conversar comigo OU pedir para eu lançar coisas diretamente aqui no chat!\n\n**O que você pode fazer:**\n• ⚡ **Lançamento Automático:** Digite *"Lança 150 de internet"*, *"Gastei 45 no almoço"* ou *"Recebi 2500 de salário"*, e eu lanço no seu extrato na hora!\n• 💵 **Limite Diário Seguro:** Me pergunte *"Quanto posso gastar por dia?"* e eu calculo sua cota diária até o fim do mês.\n• 🔍 **Auditoria de Ralos:** Me pergunte *"Onde estou gastando muito?"* e eu mostro os maiores vilões do seu orçamento.\n\nQual conta ou dúvida está no seu radar agora?`
-        : `Oi! Sou o **Dante**, seu mentor financeiro ultra inteligente 🐾⚡\n\nJá analisei suas contas em tempo real:\n${saldoLinha}${futureDetails}\n• 📊 Situação real: ${situacaoTexto}\n• 📝 Lançamentos registrados: **${transactions.length} movimentações**\n• 🎯 Metas ativas na montanha: **${savingGoals.length} meta(s)**\n\n💡 **Comandos Automáticos:** Pode me pedir coisas como *"Lança 150 de internet"*, *"Gastei 40 no uber"*, ou perguntar *"Quanto posso gastar por dia até o fim do mês?"*! O que quer fazer agora?`;
+  // Mantém a memória recente do acompanhamento no dispositivo.
+  useEffect(() => {
+    if (!historyReady || messages.length === 0 || loadedHistoryIdentityRef.current !== identityKey) return;
+    try {
+      localStorage.setItem(historyStorageKey, JSON.stringify(messages.slice(-30)));
+    } catch (error) {
+      console.warn('Não foi possível salvar a memória do Dante:', error);
+    }
+  }, [messages, historyReady, historyStorageKey]);
 
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content: initialText,
-        timestamp: new Date(),
-      },
-    ]);
-  }, []);
+  useEffect(() => {
+    if (!historyReady || loadedHistoryIdentityRef.current !== identityKey) return;
+    try {
+      localStorage.setItem(modeStorageKey, danteMode);
+    } catch {
+      // Preferência de estilo não é crítica.
+    }
+  }, [danteMode, historyReady, modeStorageKey]);
+
+  const changeDanteMode = (nextMode: DanteMode) => {
+    if (nextMode === danteMode) return;
+
+    if (nextMode === 'vira_homem') {
+      const accepted = window.confirm(
+        'Ativar o modo "Vira Homem"?\n\nNesse modo o Dante será propositalmente duro, sarcástico e poderá usar palavrões ao confrontar gastos desnecessários. A bronca será sobre o comportamento financeiro, não sobre você como pessoa.'
+      );
+      if (!accepted) return;
+    }
+
+    setDanteMode(nextMode);
+  };
+
+  const clearDanteHistory = () => {
+    const accepted = window.confirm('Limpar a conversa e começar um novo acompanhamento com o Dante?');
+    if (!accepted) return;
+    try {
+      localStorage.removeItem(historyStorageKey);
+    } catch {
+      // ignore
+    }
+    setMessages([buildWelcomeMessage()]);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -264,10 +318,11 @@ export default function AIChatScreen() {
         ? `${promptToSend}\n\n${systemInjection}`
         : promptToSend;
 
-      const responseText = await callPollinationsAI(
+      const responseText = await callDanteAI(
         effectivePrompt,
         history.slice(0, -1),
-        financeContext
+        financeContext,
+        danteMode
       );
 
       const assistantMsg: Message = {
@@ -355,6 +410,10 @@ export default function AIChatScreen() {
       label: '🧗 Como acelerar minha Meta na montanha?',
       query: 'Com base no meu saldo e nos meus gastos de hoje, qual o plano de ação mais realista para eu avançar na minha Meta?',
     },
+    {
+      label: '🧠 Onde estou me sabotando?',
+      query: 'Analise meu histórico, categorias e descrições e me diga onde meus hábitos estão atrapalhando minhas metas. Use números reais e não passe pano.',
+    },
   ];
 
   if (!isPro) {
@@ -362,7 +421,7 @@ export default function AIChatScreen() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
         <ProFeatureLock
           title="Dante IA: Consultor Financeiro Particular"
-          subtitle="Tenha um consultor financeiro particular inteligente conectado aos seus lançamentos, receitas, despesas e metas em tempo real."
+          subtitle="Tenha um treinador financeiro conectado aos seus lançamentos, categorias, metas e investimentos para mudar hábitos de verdade."
           icon={<Bot className="w-10 h-10 text-slate-950" />}
           benefits={[
             {
@@ -374,12 +433,12 @@ export default function AIChatScreen() {
               desc: 'Saiba exatamente quanto pode gastar por dia para não faltar dinheiro.',
             },
             {
-              title: 'Auditoria de Ralos e Desperdícios',
-              desc: 'Identificação imediata de onde cortar sem sofrimento.',
+              title: 'Análise de Hábitos e Ralos',
+              desc: 'O Dante compara meses, categorias e descrições para encontrar padrões que estão sabotando suas metas.',
             },
             {
-              title: 'Estratégias para o Jogo da Meta',
-              desc: 'Planos de ação práticos para economizar mais rápido e subir de nível.',
+              title: 'Modo Equilibrado ou Vira Homem 🔥',
+              desc: 'Escolha entre orientação firme e didática ou uma cobrança direta, sem passar pano para gasto desnecessário.',
             },
           ]}
         />
@@ -399,7 +458,7 @@ export default function AIChatScreen() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg sm:text-xl font-black text-white font-mono tracking-tight flex items-center gap-2">
-                Dante <span className="text-cyan-400 neon-text-cyan">• Mentor Financeiro Ultra Inteligente</span>
+                Dante <span className="text-cyan-400 neon-text-cyan">• Consultor & Treinador Financeiro</span>
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -407,7 +466,7 @@ export default function AIChatScreen() {
               </span>
             </div>
             <p className="text-xs text-slate-300 font-mono mt-0.5">
-              Peça para lançar despesas, calcular limite diário ou auditar gastos: o Dante faz tudo na hora!
+              Ele lê seus lançamentos, metas, contas e investimentos para te ajudar a construir bons hábitos financeiros.
             </p>
           </div>
         </div>
@@ -434,6 +493,55 @@ export default function AIChatScreen() {
             <span className="text-slate-400 block text-[9px]">TRANSAÇÕES</span>
             <span className="font-bold text-amber-300">{transactions.length} registros</span>
           </div>
+        </div>
+      </div>
+
+      {/* Personalidade do Dante */}
+      <div className="rounded-2xl bg-slate-950/75 border border-white/10 px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${danteMode === 'vira_homem' ? 'bg-orange-500/20 border border-orange-400/40 text-orange-300' : 'bg-cyan-500/15 border border-cyan-400/30 text-cyan-300'}`}>
+            {danteMode === 'vira_homem' ? <Flame className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+          </div>
+          <div>
+            <div className="text-xs font-bold text-white">Estilo do Dante</div>
+            <div className="text-[10px] text-slate-400 font-mono">
+              {danteMode === 'vira_homem'
+                ? 'Direto, duro e sem passar pano para gasto desnecessário.'
+                : 'Didático, firme e focado em criar hábitos que duram.'}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex p-1 rounded-xl bg-slate-900 border border-white/10">
+            <button
+              onClick={() => changeDanteMode('equilibrado')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition ${
+                danteMode === 'equilibrado'
+                  ? 'bg-cyan-500 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Equilibrado
+            </button>
+            <button
+              onClick={() => changeDanteMode('vira_homem')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold transition flex items-center gap-1 ${
+                danteMode === 'vira_homem'
+                  ? 'bg-orange-500 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-orange-300'
+              }`}
+            >
+              <Flame className="w-3 h-3" /> Vira Homem
+            </button>
+          </div>
+          <button
+            onClick={clearDanteHistory}
+            className="h-9 px-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition"
+            title="Nova conversa"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -600,7 +708,7 @@ export default function AIChatScreen() {
               </div>
               <div className="rounded-2xl px-4 py-2.5 bg-slate-900/90 border border-white/10 text-cyan-400 font-mono text-xs flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                <span>Dante está analisando suas contas e executando ações...</span>
+                <span>{danteMode === 'vira_homem' ? 'Dante está procurando onde você está se sabotando...' : 'Dante está analisando seu histórico financeiro e seus hábitos...'}</span>
               </div>
             </div>
           )}
