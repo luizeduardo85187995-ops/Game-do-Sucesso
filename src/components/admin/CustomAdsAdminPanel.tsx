@@ -386,10 +386,10 @@ export default function CustomAdsAdminPanel() {
             <div className="space-y-0.5">
               <span className="text-xs font-mono font-bold text-white flex items-center gap-1.5">
                 <Radio className="w-4 h-4 text-cyan-400" />
-                Modo de Exibição Global de Publicidade
+                Política de Exibição de Publicidade
               </span>
               <p className="text-[11px] text-slate-400">
-                Selecione qual sistema de anúncios é exibido para usuários da versão gratuita
+                AdSense público fica restrito ao conteúdo editorial público; dentro do app só entram parcerias diretas.
               </p>
             </div>
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950 border border-white/10">
@@ -402,7 +402,7 @@ export default function CustomAdsAdminPanel() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Anúncios Próprios
+                Parcerias no app
               </button>
               <button
                 type="button"
@@ -413,7 +413,7 @@ export default function CustomAdsAdminPanel() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Google AdSense
+                AdSense público
               </button>
               <button
                 type="button"
@@ -424,7 +424,7 @@ export default function CustomAdsAdminPanel() {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Híbrido (Misto)
+                Híbrido (app + público)
               </button>
             </div>
           </div>
@@ -575,7 +575,7 @@ export default function CustomAdsAdminPanel() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-slate-300 font-semibold block">Google AdSense Client ID (ca-pub):</label>
+                <label className="text-slate-300 font-semibold block">AdSense público Client ID (ca-pub):</label>
                 <input
                   type="text"
                   value={commAdSenseId}
@@ -586,7 +586,7 @@ export default function CustomAdsAdminPanel() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-slate-300 font-semibold block">Google AdSense Slot ID:</label>
+                <label className="text-slate-300 font-semibold block">AdSense público Slot ID:</label>
                 <input
                   type="text"
                   value={commAdSenseSlot}

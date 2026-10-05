@@ -1,17 +1,17 @@
-# Deploy seguro — ordem exata
+# Deploy seguro — V8
 
-1. Faça backup do repositório atual no GitHub (tag/branch ou download ZIP).
-2. Substitua o conteúdo do repositório pela versão corrigida, preservando os valores secretos somente na Vercel.
-3. Nunca envie arquivos `firebase-adminsdk*.json` ao GitHub.
+1. Faça backup do repositório atual no GitHub.
+2. Substitua o conteúdo da raiz pelo conteúdo desta versão V8.
+3. Nunca envie `.env`, `firebase-adminsdk*.json`, service account ou chave privada ao GitHub.
 4. Aguarde o deploy automático da Vercel.
-5. Se o deploy falhar, não teste Kiwify; abra o log da Vercel e corrija primeiro.
-6. Abra `https://jornada-do-sucesso-swart.vercel.app/api/health`.
-7. Abra `https://jornada-do-sucesso-swart.vercel.app/api/webhooks/kiwify`.
-8. No Firebase, publique o conteúdo de `firestore.rules` para o banco `ai-studio-jornadadameta-5b8ff790-fb11-4b30-b75a-965488b23203`.
-9. Rotacione o token do webhook Kiwify que apareceu anteriormente em print e atualize `KIWIFY_WEBHOOK_SECRET` na Vercel.
-10. Faça novo deploy após alterar o segredo, se necessário para garantir que o ambiente de produção recebeu a nova variável.
-11. Na Kiwify, mantenha o produto `Minhas Finanças PRO` e os eventos: Compra aprovada, Reembolso, Chargeback, Assinatura cancelada, Assinatura atrasada e Assinatura renovada.
-12. URL: `https://jornada-do-sucesso-swart.vercel.app/api/webhooks/kiwify`.
-13. Use “Testar Webhook” e confira o log da Kiwify e os logs da Function na Vercel.
-14. Confirme que o Firestore criou/atualizou `/subscriptions/{uid}` para um usuário de teste.
-15. Faça teste controlado dos links mensal e anual antes de liberar comercialmente.
+5. Confirme `https://jornada-do-sucesso-swart.vercel.app/` — deve abrir a nova home pública.
+6. Confirme `https://jornada-do-sucesso-swart.vercel.app/app` — deve abrir o aplicativo financeiro preservado.
+7. Confirme `https://jornada-do-sucesso-swart.vercel.app/api/health`.
+8. Teste Dante e Kiwify somente se o backend estiver saudável.
+9. Confirme `https://jornada-do-sucesso-swart.vercel.app/ads.txt`.
+10. Confirme `https://jornada-do-sucesso-swart.vercel.app/robots.txt`.
+11. Confirme `https://jornada-do-sucesso-swart.vercel.app/sitemap.xml`.
+12. Navegue deslogado por Educação Financeira, Ferramentas, Como funciona, Metodologia, Sobre, Privacidade, Termos e Contato.
+13. No AdSense, mantenha Anúncios automáticos desativados durante a nova revisão e não configure Google Ads dentro de `/app`.
+14. Se desejar unidades manuais do Google em artigos, configure um Slot ID real. Sem Slot ID válido, a V8 não renderiza anúncio Google.
+15. Depois de conferir o domínio publicado e a navegação pública, solicite a nova revisão do AdSense.

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /app
+
+Sitemap: https://jornada-do-sucesso-swart.vercel.app/sitemap.xml

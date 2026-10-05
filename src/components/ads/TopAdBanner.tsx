@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Crown, ExternalLink, Copy, Check, Info } from 'lucide-react';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useSettings, DEFAULT_CUSTOM_ADS, CustomAd } from '../../context/SettingsContext';
@@ -6,8 +6,6 @@ import { useSettings, DEFAULT_CUSTOM_ADS, CustomAd } from '../../context/Setting
 export default function TopAdBanner() {
   const { isPro, openProModal } = useSubscription();
   const {
-    googleAdSenseClientId,
-    googleAdSenseSlotId,
     customAds,
     adDisplayMode,
     theme,
@@ -16,7 +14,6 @@ export default function TopAdBanner() {
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
-  const adSenseRef = useRef<HTMLModElement | null>(null);
 
   const isLight = theme === 'pro_light';
 
@@ -56,56 +53,13 @@ export default function TopAdBanner() {
     }
   };
 
-  // Load real Google AdSense script dynamically when publisher ID is configured and mode is adsense
-  useEffect(() => {
-    if (isPro || adDisplayMode !== 'adsense' || !googleAdSenseClientId) return;
+  // Google AdSense is intentionally disabled inside the authenticated app.
+  // Only direct partnerships may appear here; Google ads are restricted to eligible public editorial pages.
 
-    try {
-      // @ts-ignore
-      ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
-    } catch {
-      // silently handle AdSense push
-    }
-  }, [isPro, adDisplayMode, googleAdSenseClientId, googleAdSenseSlotId]);
-
-  // If user is PRO subscriber, do not render any ad banner!
-  if (isPro) {
+  // PRO users never see ads. In 'adsense' mode the private app also stays ad-free,
+  // because Google ads are rendered only on long-form public editorial pages.
+  if (isPro || adDisplayMode === 'adsense') {
     return null;
-  }
-
-  // If set to Google AdSense mode and has valid client ID
-  if (adDisplayMode === 'adsense' && googleAdSenseClientId) {
-    return (
-      <div className={`top-admob-strip relative z-50 border-b px-2 sm:px-4 py-1 flex items-center justify-between gap-2 ${
-        isLight
-          ? 'bg-slate-50 border-slate-200 text-slate-800'
-          : 'bg-[#070d1e] border-cyan-500/30'
-      }`}>
-        <div className="flex-1 overflow-hidden flex items-center justify-center">
-          <ins
-            ref={adSenseRef}
-            className="adsbygoogle block w-full text-center"
-            style={{ display: 'block', maxHeight: '50px', overflow: 'hidden' }}
-            data-ad-client={googleAdSenseClientId}
-            data-ad-slot={googleAdSenseSlotId || '1234567890'}
-            data-ad-format="horizontal"
-            data-full-width-responsive="true"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={openProModal}
-          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0 flex items-center gap-1 ${
-            isLight
-              ? 'bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900'
-              : 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300'
-          }`}
-        >
-          <Crown className="w-3 h-3" />
-          <span>Remover</span>
-        </button>
-      </div>
-    );
   }
 
   const currentAd = validAds[currentAdIndex] || validAds[0];

@@ -1141,7 +1141,7 @@ export default function SettingsScreen({
               }`}
             >
               <BadgePercent className="w-4 h-4" />
-              <span>Google AdSense</span>
+              <span>AdSense (conteúdo público)</span>
             </button>
 
             <button
@@ -1267,8 +1267,8 @@ export default function SettingsScreen({
                       <Megaphone className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-white">Google AdSense / Google AdMob</h4>
-                      <p className="text-xs text-slate-400">Insira seu ID de Editor para exibir anúncios oficiais do Google</p>
+                      <h4 className="text-sm font-bold text-white">Google AdSense — somente conteúdo público</h4>
+                      <p className="text-xs text-slate-400">Esses dados são usados apenas em artigos públicos elegíveis. O AdSense não é carregado dentro do app financeiro.</p>
                     </div>
                   </div>
 
@@ -1312,7 +1312,7 @@ export default function SettingsScreen({
                       className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-cyan-500/30 text-white font-mono text-xs focus:border-cyan-400 focus:outline-none placeholder:text-slate-600"
                     />
                     <p className="text-[10px] text-slate-400">
-                      Código numérico gerado ao criar um anúncio em formato Banner Horizontal.
+                      Código numérico de um bloco manual criado no AdSense. Sem um Slot ID válido, nenhum anúncio Google é renderizado.
                     </p>
                   </div>
                 </div>
@@ -1321,7 +1321,7 @@ export default function SettingsScreen({
                   <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>
-                      ID do Google configurado! O script oficial do Google AdSense será carregado para monetizar os acessos quando o modo AdSense estiver ativo.
+                      ID do Google configurado. Por política, o script do AdSense só pode ser carregado em páginas públicas editoriais elegíveis; ele permanece bloqueado nas telas privadas do aplicativo.
                     </span>
                   </div>
                 )}

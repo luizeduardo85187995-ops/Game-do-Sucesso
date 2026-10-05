@@ -88,12 +88,12 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'privacy' }: 
               </section>
 
               <section className="space-y-1.5">
-                <h4 className="font-bold text-sm text-white">2. Uso de Dados e Publicidade (Google AdSense & AdMob)</h4>
+                <h4 className="font-bold text-sm text-white">2. Uso de Dados e Publicidade</h4>
                 <p>
-                  Para usuários da versão gratuita, o aplicativo pode exibir anúncios veiculados pelo <strong>Google AdSense</strong> ou <strong>Google AdMob</strong>. O Google e parceiros terceirizados utilizam cookies ou identificadores de publicidade móvel para veicular anúncios baseados em visitas anteriores ou interesses gerais do usuário.
+                  O aplicativo autenticado pode exibir <strong>parcerias diretas</strong> identificadas como publicidade para usuários da versão gratuita. Anúncios do <strong>Google AdSense</strong> são restritos às páginas públicas de conteúdo editorial elegíveis e não são carregados em telas privadas de controle financeiro, login, configurações, Dante, pagamento ou administração.
                 </p>
                 <p className="text-slate-400">
-                  Você pode optar por desativar a publicidade personalizada acessando as Configurações de Anúncios do Google (<a href="https://www.google.com/settings/ads" target="_blank" rel="noreferrer" className="text-cyan-400 underline">google.com/settings/ads</a>) ou optando pela versão PRO do aplicativo.
+                  Quando anúncios do Google estiverem ativos nas páginas editoriais públicas, Google e parceiros podem utilizar cookies e tecnologias semelhantes conforme as políticas e preferências de anúncios do próprio Google.
                 </p>
               </section>
 

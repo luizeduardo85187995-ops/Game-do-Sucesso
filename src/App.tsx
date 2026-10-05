@@ -49,6 +49,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { GoogleLogo } from './components/icons/GoogleLogo';
 import { TabId } from './types/navigation';
 import GuidedTour from './components/tutorial/GuidedTour';
+import PublicSite from './public/PublicSite';
 
 // Clean, high-value primary financial modules (Settings and Google account sit dedicated on top right header)
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }>; highlight?: boolean; badge?: string }[] = [
@@ -605,7 +606,15 @@ function AppContent() {
             <span>SISTEMA FINANCEIRO QUÂNTICO</span>
           </div>
 
-          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] text-slate-400">
+            <a href="/educacao-financeira" className="hover:text-emerald-400 underline underline-offset-2 transition-colors">
+              Educação Financeira
+            </a>
+            <span>•</span>
+            <a href="/ferramentas" className="hover:text-emerald-400 underline underline-offset-2 transition-colors">
+              Ferramentas Gratuitas
+            </a>
+            <span>•</span>
             <button
               type="button"
               onClick={() => setLegalModalTab('privacy')}
@@ -651,6 +660,28 @@ function AppContent() {
 }
 
 export default function App() {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  const isPrivateAppRoute = path === '/app' || path.startsWith('/app/');
+  const isStandalonePwa = window.matchMedia?.('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+
+  // Existing installed PWAs used to start at '/'. Keep them opening the finance app
+  // while the normal browser root becomes the public editorial site.
+  if (path === '/' && isStandalonePwa) {
+    window.location.replace('/app');
+    return null;
+  }
+
+  // Public editorial site is deliberately separated from the authenticated finance app.
+  // This prevents Google AdSense from being loaded on login, settings, Dante, checkout,
+  // navigation-only, empty or other private behavioral screens.
+  if (!isPrivateAppRoute) {
+    return (
+      <SettingsProvider>
+        <PublicSite />
+      </SettingsProvider>
+    );
+  }
+
   return (
     <AuthProvider>
       <SettingsProvider>
