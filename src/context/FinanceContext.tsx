@@ -677,13 +677,47 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTransaction = (id: string, changes: Partial<Omit<Transaction, 'id'>>) => {
-    setTransactions((prev) =>
-      prev.map((tx) => (tx.id === id ? { ...tx, ...changes } : tx))
-    );
+    const previous = transactions.find((tx) => tx.id === id);
+    if (!previous) return;
+
+    const updated: Transaction = { ...previous, ...changes };
+    setTransactions((prev) => prev.map((tx) => (tx.id === id ? updated : tx)));
+
+    // Reconcile the account balance: undo the old movement, then apply the edited one.
+    const movement = (tx: Transaction) => tx.type === 'income' ? tx.amount : -tx.amount;
+    const accountDeltas = new Map<string, number>();
+    if (previous.bankAccountId) {
+      accountDeltas.set(previous.bankAccountId, (accountDeltas.get(previous.bankAccountId) || 0) - movement(previous));
+    }
+    if (updated.bankAccountId) {
+      accountDeltas.set(updated.bankAccountId, (accountDeltas.get(updated.bankAccountId) || 0) + movement(updated));
+    }
+
+    if (accountDeltas.size > 0) {
+      setBankAccounts((prev) => prev.map((account) => {
+        const delta = accountDeltas.get(account.id);
+        return delta === undefined
+          ? account
+          : { ...account, balance: account.balance + delta, updatedAt: new Date().toISOString() };
+      }));
+    }
   };
 
   const deleteTransaction = (id: string) => {
+    const transaction = transactions.find((tx) => tx.id === id);
+    if (!transaction) return;
+
     setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+
+    // Deleting a movement must also undo its effect on the linked bank account.
+    if (transaction.bankAccountId) {
+      const delta = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+      setBankAccounts((prev) => prev.map((account) =>
+        account.id === transaction.bankAccountId
+          ? { ...account, balance: account.balance + delta, updatedAt: new Date().toISOString() }
+          : account
+      ));
+    }
   };
 
   const addBankAccount = (acc: Omit<BankAccount, 'id' | 'updatedAt'>): BankAccount => {
