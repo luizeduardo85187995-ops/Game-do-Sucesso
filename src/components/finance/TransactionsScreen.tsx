@@ -38,6 +38,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
   } = useFinance();
 
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -145,9 +146,18 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     setShowNotificationImporter(false);
   };
 
-  // Filter logic
+  // Filter logic: separate the selected month from transactions belonging to older months.
+  const currentMonthKey = monthKey(todayISO());
+  const currentMonthCount = transactions.filter((tx) => monthKey(tx.date) === currentMonthKey).length;
+  const previousMonthsCount = transactions.filter((tx) => monthKey(tx.date) < currentMonthKey).length;
+
   const filtered = transactions.filter((tx) => {
     if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
+
+    const transactionMonthKey = monthKey(tx.date);
+    if (monthFilter === 'current' && transactionMonthKey !== currentMonthKey) return false;
+    if (monthFilter === 'previous' && transactionMonthKey >= currentMonthKey) return false;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchNote = (tx.note || '').toLowerCase().includes(q);
@@ -260,6 +270,46 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
             placeholder="Buscar por descrição..."
             className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
           />
+        </div>
+      </div>
+
+      {/* Period filter */}
+      <div className="cyber-card rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-300 shrink-0">
+          <Calendar className="w-4 h-4 text-cyan-400" />
+          <span>Período das movimentações</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 w-full">
+          <button
+            onClick={() => setMonthFilter('current')}
+            className={`px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all border ${
+              monthFilter === 'current'
+                ? 'bg-cyan-500 text-slate-950 border-cyan-400'
+                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+            }`}
+          >
+            Este mês <span className="opacity-75">({currentMonthCount})</span>
+          </button>
+          <button
+            onClick={() => setMonthFilter('previous')}
+            className={`px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all border ${
+              monthFilter === 'previous'
+                ? 'bg-cyan-500 text-slate-950 border-cyan-400'
+                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+            }`}
+          >
+            Meses anteriores <span className="opacity-75">({previousMonthsCount})</span>
+          </button>
+          <button
+            onClick={() => setMonthFilter('all')}
+            className={`px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all border ${
+              monthFilter === 'all'
+                ? 'bg-cyan-500 text-slate-950 border-cyan-400'
+                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+            }`}
+          >
+            Todos os meses ({transactions.length})
+          </button>
         </div>
       </div>
 
