@@ -38,7 +38,8 @@ export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return { user: result.user, error: null };
-  } catch (error: any) {
+  } catch (caught: unknown) {
+    const error = caught as { code?: string; message?: string };
     console.error('Google Sign-In error:', error);
     let friendlyMsg = error.message || 'Falha ao autenticar com o Google';
     const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -49,11 +50,17 @@ export async function signInWithGoogle() {
       friendlyMsg = 'A janela de login do Google foi fechada antes de concluir.';
     } else if (error.code === 'auth/cancelled-popup-request') {
       friendlyMsg = 'Operação cancelada. Tente novamente.';
+    } else if (error.code === 'auth/operation-not-allowed') {
+      friendlyMsg = 'O login Google está desativado neste projeto Firebase. Ative o provedor Google em Authentication > Sign-in method.';
+    } else if (error.code === 'auth/network-request-failed') {
+      friendlyMsg = 'Não foi possível alcançar o Google. Verifique a conexão e se o navegador ou a rede bloqueia o login.';
+    } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid.-please-pass-a-valid-api-key.') {
+      friendlyMsg = 'A configuração Firebase do aplicativo é inválida. É necessário revisar a chave pública e o projeto configurado.';
     } else if (error.code === 'auth/popup-blocked') {
       friendlyMsg = 'O navegador bloqueou a janela pop-up do Google. Permita pop-ups para este site.';
     }
 
-    return { user: null, error: friendlyMsg };
+    return { user: null, error: `${friendlyMsg} [${error.code || 'erro-desconhecido'}]` };
   }
 }
 
@@ -61,7 +68,8 @@ export async function logOut() {
   try {
     await firebaseSignOut(auth);
     return { success: true };
-  } catch (error: any) {
+  } catch (caught: unknown) {
+    const error = caught as { code?: string; message?: string };
     console.error('Logout error:', error);
     return { success: false, error: error.message };
   }

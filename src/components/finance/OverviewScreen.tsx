@@ -334,14 +334,14 @@ export default function OverviewScreen({
           </div>
           <div className="flex-1 text-xs leading-relaxed">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="font-bold text-sm">Contas Futuras Já Descontadas</span>
+              <span className="font-bold text-sm">Despesas futuras pendentes</span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
                 isLight ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-400/20 text-emerald-300'
               }`}>
-                Próximo Mês Seguro
+                Ainda não pagas
               </span>
             </div>
-            Você cadastrou <strong>{formatBRL(metrics.futureExpenses)}</strong> em despesas que já foram abatidas do seu saldo bancário. O seu saldo atual de <strong>{formatBRL(metrics.balance)}</strong> é exatamente o que sobrou líquido e livre!
+            Você tem <strong>{formatBRL(metrics.futureExpenses)}</strong> em despesas futuras pendentes. Elas ainda não foram descontadas do saldo. Após reservar todas as despesas pendentes, restam <strong>{formatBRL(metrics.realFreeBalance)}</strong>.
           </div>
         </div>
       )}
@@ -354,7 +354,7 @@ export default function OverviewScreen({
             <span className={`text-[11px] font-bold uppercase tracking-wider ${
               isLight ? 'text-slate-500' : 'text-slate-400'
             }`}>
-              Saldo Livre em Contas
+              Saldo atual consolidado
             </span>
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${
               isLight
@@ -373,7 +373,7 @@ export default function OverviewScreen({
             <div className={`text-[10px] mt-1 font-mono flex items-center gap-1 font-semibold ${
               isLight ? 'text-emerald-700' : 'text-emerald-400'
             }`}>
-              <span>Livre após abater {formatBRL(metrics.futureExpenses)}</span>
+              <span>Após reservar pendências: {formatBRL(metrics.realFreeBalance)}</span>
             </div>
           ) : (
             <div className={`text-[11px] mt-1 flex items-center gap-1 font-mono ${

@@ -1,6 +1,9 @@
+import RepeatExpensesModal from './RepeatExpensesModal';
+import { dateInMonth } from '../../utils/repeatExpenses';
 import React, { useState } from 'react';
 import {
   Plus,
+  Copy,
   Search,
   ArrowUpRight,
   ArrowDownRight,
@@ -15,8 +18,10 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { Transaction, TransactionType } from '../../types/finance';
-import { formatBRL, formatDateBR, monthKey, todayISO } from '../../utils/format';
+import { formatBRL, formatDateBR, monthKey, monthLabel, todayISO } from '../../utils/format';
 import { CATEGORY_COLORS, getCategoryMeta, EXPENSE_CATEGORY_ICONS, INCOME_CATEGORY_ICONS } from '../../data/categories';
+import { shiftMonth, transactionTotals, transactionsForMonth, transactionsForRange, isValidDate } from '../../utils/transactionPeriod';
+import { isSettled } from '../../utils/transactions';
 import { parseBankNotification } from '../../utils/bankParser';
 
 interface TransactionsScreenProps {
@@ -29,6 +34,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    repeatExpenses,
     bankAccounts,
     incomeCategories,
     expenseCategories,
@@ -38,7 +44,14 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
   } = useFinance();
 
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
-  const [monthFilter, setMonthFilter] = useState<'all' | 'current' | 'previous'>('current');
+  const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
+  const [periodMode, setPeriodMode] = useState<'month' | 'range' | 'all'>('month');
+  const showAllMonths = periodMode === 'all';
+  const [dateFrom, setDateFrom] = useState(`${todayISO().slice(0, 7)}-01`);
+  const [dateTo, setDateTo] = useState(todayISO());
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'settled'>('all');
+  const [repeatDialog, setRepeatDialog] = useState<{ source?: Transaction } | null>(null);
+  const [repeatNotice, setRepeatNotice] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -60,6 +73,8 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
   const [formAmount, setFormAmount] = useState('');
   const [formCategory, setFormCategory] = useState('Mercado');
   const [formDate, setFormDate] = useState(todayISO());
+  const [formStatus, setFormStatus] = useState<'pending' | 'settled'>('settled');
+  const [formPaymentDate, setFormPaymentDate] = useState(todayISO());
   const [formNote, setFormNote] = useState('');
   const [formBankId, setFormBankId] = useState('');
 
@@ -68,7 +83,10 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     setFormType(initialType);
     setFormAmount('');
     setFormCategory(initialType === 'income' ? 'Salário' : 'Mercado');
-    setFormDate(todayISO());
+    const initialDate = periodMode === 'month' ? dateInMonth(selectedMonth, Number(todayISO().slice(8, 10))) : todayISO();
+    setFormDate(initialDate);
+    setFormStatus(initialDate > todayISO() ? 'pending' : 'settled');
+    setFormPaymentDate(todayISO());
     setFormNote('');
     setFormBankId(bankAccounts[0]?.id || '');
     setShowAddCatInline(false);
@@ -93,6 +111,8 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     setFormAmount(String(tx.amount));
     setFormCategory(tx.category);
     setFormDate(tx.date);
+    setFormStatus(isSettled(tx) ? 'settled' : 'pending');
+    setFormPaymentDate(tx.paymentDate || tx.date);
     setFormNote(tx.note || '');
     setFormBankId(tx.bankAccountId || '');
     setShowModal(true);
@@ -109,6 +129,8 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
         amount: val,
         category: formCategory,
         date: formDate,
+        status: formStatus,
+        paymentDate: formStatus === 'settled' ? formPaymentDate : '',
         note: formNote.trim(),
         bankAccountId: formBankId || undefined,
       });
@@ -118,11 +140,15 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
         amount: val,
         category: formCategory,
         date: formDate,
+        status: formStatus,
+        paymentDate: formStatus === 'settled' ? formPaymentDate : '',
         note: formNote.trim(),
         bankAccountId: formBankId || undefined,
       });
     }
 
+    setSelectedMonth(formDate.slice(0, 7));
+    setPeriodMode('month');
     setShowModal(false);
   };
 
@@ -146,34 +172,26 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     setShowNotificationImporter(false);
   };
 
-  // Filter logic: separate the selected month from transactions belonging to older months.
-  const currentMonthKey = monthKey(todayISO());
-  const currentMonthCount = transactions.filter((tx) => monthKey(tx.date) === currentMonthKey).length;
-  const previousMonthsCount = transactions.filter((tx) => monthKey(tx.date) < currentMonthKey).length;
-
-  const filtered = transactions.filter((tx) => {
-    if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
-
-    const transactionMonthKey = monthKey(tx.date);
-    if (monthFilter === 'current' && transactionMonthKey !== currentMonthKey) return false;
-    if (monthFilter === 'previous' && transactionMonthKey >= currentMonthKey) return false;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchNote = (tx.note || '').toLowerCase().includes(q);
-      const matchCat = tx.category.toLowerCase().includes(q);
-      if (!matchNote && !matchCat) return false;
-    }
-    return true;
-  });
-
-  const totalFilteredIncome = filtered
-    .filter((t) => t.type === 'income')
-    .reduce((s, t) => s + t.amount, 0);
-
-  const totalFilteredExpense = filtered
-    .filter((t) => t.type === 'expense')
-    .reduce((s, t) => s + t.amount, 0);
+  const currentMonth = todayISO().slice(0, 7);
+  const rangeValid = isValidDate(dateFrom) && isValidDate(dateTo) && dateFrom <= dateTo;
+  const periodLabel = showAllMonths ? 'Todos os meses' : periodMode === 'range' ? `${formatDateBR(dateFrom)} a ${formatDateBR(dateTo)}` : monthLabel(selectedMonth);
+  const periodTransactions = periodMode === 'range' ? transactionsForRange(transactions, dateFrom, dateTo) : transactionsForMonth(transactions, showAllMonths ? null : selectedMonth);
+  const filtered = periodTransactions.filter((transaction) => {
+    if (statusFilter === 'pending' && isSettled(transaction)) return false;
+    if (statusFilter === 'settled' && !isSettled(transaction)) return false;
+    if (typeFilter !== 'all' && transaction.type !== typeFilter) return false;
+    const query = searchQuery.trim().toLocaleLowerCase('pt-BR');
+    return !query || (transaction.note || '').toLocaleLowerCase('pt-BR').includes(query)
+      || transaction.category.toLocaleLowerCase('pt-BR').includes(query);
+  }).sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+  const totals = transactionTotals(filtered);
+  const totalFilteredIncome = totals.income;
+  const totalFilteredExpense = totals.expense;
+  const changeMonth = (month: string): void => {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return;
+    setSelectedMonth(month);
+    setPeriodMode('month');
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -184,7 +202,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
           <p className="text-xs text-slate-400">Controle detalhado de todas as suas receitas e despesas</p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowNotificationImporter(true)}
             className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold hover:bg-purple-500/30 transition-all flex items-center justify-center gap-1.5"
@@ -194,6 +212,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
             <span>Colar Pix / Notificação</span>
           </button>
 
+          <button onClick={() => { setRepeatNotice(''); setRepeatDialog({}); }} className="px-3 py-2.5 rounded-xl border border-cyan-400/40 text-cyan-300 text-xs font-bold flex items-center gap-2"><Copy className="w-4 h-4" />Repetir despesas</button>
           <button
             onClick={() => openNewModal('expense')}
             className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-400/20"
@@ -204,28 +223,67 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
         </div>
       </div>
 
+      {repeatNotice && <p role="status" className="text-sm text-emerald-300">{repeatNotice}</p>}
+      <section aria-label="Período dos lançamentos" className="cyber-card rounded-2xl p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-cyan-400" />
+            <div>
+              <p className="text-xs text-slate-400">Mês de referência</p>
+              <h3 data-testid="transaction-period" className="font-bold text-white">{periodLabel}</h3>
+            </div>
+          </div>
+          <label className="text-xs text-slate-300">Escolher mês
+            <input aria-label="Escolher mês dos lançamentos" type="month" value={selectedMonth} onChange={event => changeMonth(event.target.value)} className="block mt-1 bg-slate-800 text-white border border-slate-600 rounded-lg p-2" />
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => changeMonth(shiftMonth(selectedMonth, -1))} className="rounded-lg border border-white/15 px-3 py-2 text-xs text-slate-200">← Mês anterior</button>
+          <button type="button" onClick={() => changeMonth(currentMonth)} className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-slate-950">Mês atual</button>
+          <button type="button" onClick={() => changeMonth(shiftMonth(selectedMonth, 1))} className="rounded-lg border border-white/15 px-3 py-2 text-xs text-slate-200">Próximo mês →</button>
+          <button type="button" aria-pressed={periodMode === 'range'} onClick={() => setPeriodMode('range')} className="rounded-lg border border-white/15 px-3 py-2 text-xs text-slate-200">Intervalo de datas</button>
+          <button type="button" aria-pressed={showAllMonths} onClick={() => setPeriodMode('all')} className={`rounded-lg border px-3 py-2 text-xs ${showAllMonths ? 'border-amber-400 text-amber-300 bg-amber-500/10' : 'border-white/15 text-slate-400'}`}>Todos os meses</button>
+        </div>
+        {periodMode === 'range' && <div className="space-y-2">
+          <div className="flex flex-wrap gap-3">
+            <label className="text-xs text-slate-300">De<input aria-label="Data inicial do período" type="date" value={dateFrom} onChange={event => setDateFrom(event.target.value)} className="block mt-1 rounded-lg border border-slate-600 bg-slate-800 p-2" /></label>
+            <label className="text-xs text-slate-300">Até<input aria-label="Data final do período" type="date" value={dateTo} onChange={event => setDateTo(event.target.value)} className="block mt-1 rounded-lg border border-slate-600 bg-slate-800 p-2" /></label>
+          </div>
+          {!rangeValid && <p role="alert" className="text-xs text-rose-300">Informe as duas datas; a data final deve ser igual ou posterior à inicial.</p>}
+        </div>}
+        <label className="block text-xs text-slate-300">Situação dos lançamentos
+          <select aria-label="Filtrar situação dos lançamentos" value={statusFilter} onChange={event => setStatusFilter(event.target.value as 'all' | 'pending' | 'settled')} className="block mt-1 rounded-lg bg-slate-800 border border-slate-600 p-2">
+            <option value="all">Todas as situações</option><option value="pending">Pendentes</option><option value="settled">Pagos / recebidos</option>
+          </select>
+        </label>
+        <p className={`text-xs ${showAllMonths ? 'text-amber-300' : 'text-slate-400'}`}>
+          {showAllMonths ? 'Visão acumulada: passado, presente e futuro estão incluídos por sua escolha.' : `Lista e totais incluem somente ${periodLabel}, conforme a data de referência.`}
+          {' '}Tipo, situação e busca refinam também os totais. Com todas as situações, pendentes também são incluídos; o resultado não é o saldo bancário.
+        </p>
+      </section>
+
       {/* Summary Chips for Filtered View */}
       <div className="grid grid-cols-3 gap-3">
         <div className="cyber-card p-3 rounded-2xl border-emerald-500/30 bg-emerald-950/20 text-center hud-border-corners">
-          <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider">// Total Entradas</span>
+          <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider">// Receitas do período</span>
           <div className="text-sm sm:text-base font-black text-emerald-400 mt-0.5 font-mono neon-text-emerald">
-            {formatBRL(totalFilteredIncome)}
+            <span data-testid="period-income">{formatBRL(totalFilteredIncome)}</span>
           </div>
         </div>
 
         <div className="cyber-card p-3 rounded-2xl border-orange-500/30 bg-orange-950/20 text-center hud-border-corners">
-          <span className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">// Total Saídas</span>
+          <span className="text-[10px] font-mono text-orange-400 font-bold uppercase tracking-wider">// Despesas do período</span>
           <div className="text-sm sm:text-base font-black text-orange-400 mt-0.5 font-mono">
-            {formatBRL(totalFilteredExpense)}
+            <span data-testid="period-expense">{formatBRL(totalFilteredExpense)}</span>
           </div>
         </div>
 
         <div className="cyber-card p-3 rounded-2xl text-center hud-border-corners">
-          <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">// Balanço Filtro</span>
+          <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">// Resultado do período</span>
           <div className={`text-sm sm:text-base font-black mt-0.5 font-mono ${
             totalFilteredIncome - totalFilteredExpense >= 0 ? 'text-cyan-400 neon-text-cyan' : 'text-rose-400'
           }`}>
-            {formatBRL(totalFilteredIncome - totalFilteredExpense)}
+            <span data-testid="period-net">{formatBRL(totals.net)}</span>
           </div>
         </div>
       </div>
@@ -240,7 +298,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
               typeFilter === 'all' ? 'bg-cyan-500 text-slate-950' : 'text-slate-400 hover:text-white'
             }`}
           >
-            Todas ({transactions.length})
+            Todas ({periodTransactions.length})
           </button>
           <button
             onClick={() => setTypeFilter('income')}
@@ -270,46 +328,6 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
             placeholder="Buscar por descrição..."
             className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
           />
-        </div>
-      </div>
-
-      {/* Period filter */}
-      <div className="cyber-card rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-300 shrink-0">
-          <Calendar className="w-4 h-4 text-cyan-400" />
-          <span>Período das movimentações</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2 w-full">
-          <button
-            onClick={() => setMonthFilter('current')}
-            className={`px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all border ${
-              monthFilter === 'current'
-                ? 'bg-cyan-500 text-slate-950 border-cyan-400'
-                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
-            }`}
-          >
-            Este mês <span className="opacity-75">({currentMonthCount})</span>
-          </button>
-          <button
-            onClick={() => setMonthFilter('previous')}
-            className={`px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all border ${
-              monthFilter === 'previous'
-                ? 'bg-cyan-500 text-slate-950 border-cyan-400'
-                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
-            }`}
-          >
-            Meses anteriores <span className="opacity-75">({previousMonthsCount})</span>
-          </button>
-          <button
-            onClick={() => setMonthFilter('all')}
-            className={`px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all border ${
-              monthFilter === 'all'
-                ? 'bg-cyan-500 text-slate-950 border-cyan-400'
-                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
-            }`}
-          >
-            Todos os meses ({transactions.length})
-          </button>
         </div>
       </div>
 
@@ -347,7 +365,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
                         )}
                       </div>
                       <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                        <span>{formatDateBR(tx.date)}</span>
+                        <span>{formatDateBR(tx.date)} · {isSettled(tx) ? (tx.type === 'expense' ? 'Pago' : 'Recebido') : 'Pendente'}</span>
                         <span>•</span>
                         <span className={`font-semibold ${catStyle.text}`}>{tx.category}</span>
                       </div>
@@ -362,6 +380,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
                     </div>
 
                     <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                      {tx.type === 'expense' && <button aria-label={`Repetir despesa ${tx.note || tx.category}`} title="Repetir em outro mês" onClick={() => { setRepeatNotice(''); setRepeatDialog({ source: tx }); }} className="p-1.5 rounded-lg hover:bg-cyan-500/20 text-cyan-300"><Copy className="w-3.5 h-3.5" /></button>}
                       <button
                         onClick={() => openEditModal(tx)}
                         className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white text-xs"
@@ -384,6 +403,16 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
           </div>
         )}
       </div>
+
+      {repeatDialog && <RepeatExpensesModal transactions={transactions} source={repeatDialog.source} onClose={() => setRepeatDialog(null)} onRepeat={(ids, month) => {
+        repeatExpenses(ids, month);
+        changeMonth(month);
+        setTypeFilter('expense');
+        setStatusFilter('pending');
+        setSearchQuery('');
+        setRepeatDialog(null);
+        setRepeatNotice(`Despesas repetidas como pendentes em ${monthLabel(month)}. O saldo bancário não foi alterado.`);
+      }} />}
 
       {/* Smart Notification Importer Modal */}
       {showNotificationImporter && (
@@ -448,7 +477,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
       {/* Add / Edit Transaction Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-3xl bg-slate-900 border border-white/15 p-6 space-y-4 shadow-2xl">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-slate-900 border border-white/15 p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="font-black text-white text-lg">
                 {editingTx ? 'Editar Lançamento' : 'Novo Lançamento'}
@@ -701,11 +730,12 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
               {/* Date & Bank Account */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Data</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Data de referência (mês da receita/despesa)</label>
                   <input
                     type="date"
                     value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
+                    required
+                    onChange={(e) => { setFormDate(e.target.value); if (!editingTx) setFormStatus(e.target.value > todayISO() ? 'pending' : 'settled'); }}
                     className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-xs text-white focus:outline-none focus:border-cyan-400"
                   />
                 </div>
@@ -727,6 +757,18 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <label className="block text-xs text-slate-300">Situação
+                  <select value={formStatus} onChange={(e) => setFormStatus(e.target.value as 'pending' | 'settled')} className="block w-full bg-slate-800 rounded-xl p-3 mt-1">
+                    <option value="pending">Pendente — não movimentar o saldo</option>
+                    <option value="settled">{formType === 'expense' ? 'Pago' : 'Recebido'} — movimentar o saldo</option>
+                  </select>
+                </label>
+                {formStatus === 'settled' && <label className="block text-xs text-slate-300">Data do pagamento/recebimento
+                  <input required type="date" max={todayISO()} value={formPaymentDate} onChange={(e) => setFormPaymentDate(e.target.value)} className="block bg-slate-800 p-3 rounded-xl mt-1" />
+                </label>}
+                <p className="text-xs text-slate-400">O mês é definido pela data de referência. Apenas valores pagos ou recebidos alteram o saldo da conta. Para quitar uma pendência, edite e altere a situação.</p>
+              </div>
               {/* Actions */}
               <div className="flex gap-2 pt-2">
                 <button

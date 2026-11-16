@@ -1,3 +1,4 @@
+import { prepareExpenseRepeats } from '../utils/repeatExpenses';
 import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from 'react';
 import {
   BankAccount,
@@ -19,6 +20,7 @@ import {
   DEFAULT_MARKET_INDICATORS,
   ESTIMATED_MONTHLY_YIELD,
 } from '../data/categories';
+import { bankMovement, isSettled } from '../utils/transactions';
 import { monthKey, todayISO, nextMonthKey } from '../utils/format';
 import {
   B3_CATALOG,
@@ -27,8 +29,8 @@ import {
   DEFAULT_LINKED_BROKERS,
 } from '../services/b3MarketService';
 import { useAuth } from './AuthContext';
-import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db, logOut } from '../lib/firebase';
+import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
 
 export interface FinanceMetrics {
   balance: number;
@@ -88,6 +90,7 @@ interface FinanceContextValue {
   addTransaction: (tx: Omit<Transaction, 'id'>) => Transaction;
   updateTransaction: (id: string, changes: Partial<Omit<Transaction, 'id'>>) => void;
   deleteTransaction: (id: string) => void;
+  repeatExpenses: (sourceIds: string[], targetMonth: string) => void;
 
   addBankAccount: (acc: Omit<BankAccount, 'id' | 'updatedAt'>) => BankAccount;
   updateBankAccount: (id: string, changes: Partial<Omit<BankAccount, 'id'>>) => void;
@@ -145,6 +148,8 @@ const FinanceContext = createContext<FinanceContextValue | null>(null);
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const skipHydrationSaveRef = useRef(false);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
   const [investments, setInvestments] = useState<Investment[]>(INITIAL_INVESTMENTS);
@@ -194,20 +199,20 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const applyStatePayload = (parsed: any) => {
     if (!parsed || typeof parsed !== 'object') return;
     if (Array.isArray(parsed.transactions)) setTransactions(parsed.transactions);
-    if (Array.isArray(parsed.bankAccounts) && parsed.bankAccounts.length > 0) setBankAccounts(parsed.bankAccounts);
+    if (Array.isArray(parsed.bankAccounts)) setBankAccounts(parsed.bankAccounts);
     if (Array.isArray(parsed.investments)) {
       // Sanitize only malformed items, never wipe real tickers
       const valid = parsed.investments.filter((inv: any) => inv && inv.code && typeof inv.amount === 'number' && isFinite(inv.amount));
       setInvestments(valid);
     }
-    if (Array.isArray(parsed.savingGoals) && parsed.savingGoals.length > 0) setSavingGoals(parsed.savingGoals);
+    if (Array.isArray(parsed.savingGoals)) setSavingGoals(parsed.savingGoals);
     if (Array.isArray(parsed.incomeCategories) && parsed.incomeCategories.length > 0) setIncomeCategories(parsed.incomeCategories);
     if (Array.isArray(parsed.expenseCategories) && parsed.expenseCategories.length > 0) setExpenseCategories(parsed.expenseCategories);
     if (parsed.categoryIcons && typeof parsed.categoryIcons === 'object') setCategoryIcons(parsed.categoryIcons);
     if (parsed.goals) setGoalsState(parsed.goals);
     if (parsed.base) setBaseState(parsed.base);
     if (parsed.investmentFocus) setInvestmentFocus(parsed.investmentFocus);
-    if (parsed.activeGoalId) setActiveGoalId(parsed.activeGoalId);
+    if ('activeGoalId' in parsed) setActiveGoalId(parsed.activeGoalId);
     if (Array.isArray(parsed.manualDividends)) setManualDividends(parsed.manualDividends);
     if (parsed.lastB3SyncAt) setLastB3SyncAt(parsed.lastB3SyncAt);
     if (parsed.b3Integration) setB3Integration(parsed.b3Integration);
@@ -219,174 +224,70 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
     let isCancelled = false;
     const newUid = user ? user.uid : null;
-    const previousUid = currentIdentityRef.current;
-
-    if (newUid === previousUid && loaded) return;
-
-    if (cloudSaveTimerRef.current) {
-      clearTimeout(cloudSaveTimerRef.current);
-      cloudSaveTimerRef.current = null;
-    }
+    if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
     isSyncReadyRef.current = false;
+    skipHydrationSaveRef.current = true;
+    setLoaded(false);
+    setLoadError(null);
+    setLastCloudSyncAt(null);
+    applyCleanInitialState();
 
-    async function switchIdentityAndLoad() {
-      // Visitante/deslogado: usa somente a chave de visitante.
-      if (!newUid) {
-        let guestData: any = null;
-        try {
-          const rawGuest = localStorage.getItem(GUEST_STORAGE_KEY);
-          if (rawGuest) {
-            guestData = JSON.parse(rawGuest);
-          } else {
-            // Migração única das chaves antigas para não perder dados existentes.
-            const legacyKeys = [
-              '@financas/state-v3-zeroed',
-              '@financas/backup_v1',
-              '@financas/state-v3',
-              '@financas/state-v2',
-              '@financas/state-v1',
-              '@financas/state',
-              'financas_state',
-              'financial_data',
-            ];
-            for (const legacyKey of legacyKeys) {
-              const rawLegacy = localStorage.getItem(legacyKey);
-              if (rawLegacy) {
-                guestData = JSON.parse(rawLegacy);
-                localStorage.setItem(GUEST_STORAGE_KEY, rawLegacy);
-                break;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('Falha ao carregar cache local do visitante:', e);
-        }
-
-        if (!isCancelled) {
-          if (guestData) applyStatePayload(guestData);
-          else applyCleanInitialState();
-          currentIdentityRef.current = null;
+    async function switchIdentityAndLoad(): Promise<void> {
+      try {
+        if (!newUid) {
+          const raw = localStorage.getItem(GUEST_STORAGE_KEY);
+          if (raw) applyStatePayload(JSON.parse(raw));
           setCloudSyncStatus('saved_locally');
-          setLoaded(true);
-          isSyncReadyRef.current = true;
-        }
-        return;
-      }
-
-      // Usuário autenticado: nunca herda cache de outro UID.
-      setCloudSyncStatus('syncing');
-      const userKey = `${USER_STORAGE_KEY_PREFIX}${newUid}`;
-      let localUserCache: any = null;
-
-      try {
-        const rawLocal = localStorage.getItem(userKey);
-        if (rawLocal) {
-          localUserCache = JSON.parse(rawLocal);
-          if (!isCancelled) applyStatePayload(localUserCache);
-        } else if (!isCancelled) {
-          applyCleanInitialState();
-        }
-      } catch (e) {
-        console.warn('Falha ao carregar cache local do usuário:', e);
-      }
-
-      try {
-        const userDocRef = doc(db, 'users', newUid, 'financialData', 'state');
-        const snap = await getDoc(userDocRef);
-
-        if (isCancelled) return;
-
-        if (snap.exists()) {
-          const cloudData = snap.data();
-          const localSavedAt = localUserCache?.savedAt ? new Date(localUserCache.savedAt).getTime() : 0;
-          const cloudSavedAt = cloudData?.savedAt ? new Date(cloudData.savedAt).getTime() : 0;
-
-          if (localUserCache && localSavedAt > cloudSavedAt) {
-            // Alterações feitas offline vencem a cópia antiga da nuvem.
-            applyStatePayload(localUserCache);
-            await setDoc(userDocRef, localUserCache, { merge: true });
-          } else {
-            // Firestore é mais recente/igual: atualiza estado e cache exclusivo do UID.
-            applyStatePayload(cloudData);
-            localStorage.setItem(userKey, JSON.stringify(cloudData));
-          }
-          setCloudSyncStatus('synced');
-          setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
-        } else if (localUserCache) {
-          // O UID já tinha cache local próprio, mas ainda não tinha documento na nuvem.
-          applyStatePayload(localUserCache);
-          await setDoc(userDocRef, localUserCache, { merge: true });
-          setCloudSyncStatus('synced');
-          setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
-        } else if (previousUid === null) {
-          // Primeiro login: migra dados de visitante somente se realmente houver conteúdo.
-          let rawGuest = localStorage.getItem(GUEST_STORAGE_KEY);
-          if (!rawGuest) {
-            // Compatibilidade de upgrade: somente quando a conta ainda não possui documento na nuvem,
-            // tenta recuperar o antigo cache global. Isso evita atribuir dados legados a uma conta que já tem nuvem.
-            const legacyKeys = [
-              '@financas/state-v3-zeroed',
-              '@financas/backup_v1',
-              '@financas/state-v3',
-              '@financas/state-v2',
-              '@financas/state-v1',
-              '@financas/state',
-              'financas_state',
-              'financial_data',
-            ];
-            for (const legacyKey of legacyKeys) {
-              const legacyValue = localStorage.getItem(legacyKey);
-              if (legacyValue) {
-                rawGuest = legacyValue;
-                break;
-              }
-            }
-          }
-
-          if (rawGuest) {
-            try {
-              const guestPayload = JSON.parse(rawGuest);
-              const hasGuestData =
-                (Array.isArray(guestPayload.transactions) && guestPayload.transactions.length > 0) ||
-                (Array.isArray(guestPayload.investments) && guestPayload.investments.length > 0) ||
-                (Array.isArray(guestPayload.bankAccounts) && guestPayload.bankAccounts.some((a: any) => Number(a?.balance || 0) !== 0));
-              if (hasGuestData) {
-                const migratedPayload = { ...guestPayload, savedAt: new Date().toISOString() };
-                applyStatePayload(migratedPayload);
-                localStorage.setItem(userKey, JSON.stringify(migratedPayload));
-                await setDoc(userDocRef, migratedPayload, { merge: true });
-                setCloudSyncStatus('synced');
-                setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
-              } else {
-                setCloudSyncStatus('saved_locally');
-              }
-            } catch (e) {
-              console.warn('Falha ao migrar dados de visitante/legados para a conta:', e);
-              setCloudSyncStatus('saved_locally');
-            }
-          } else {
-            setCloudSyncStatus('saved_locally');
-          }
         } else {
-          setCloudSyncStatus('saved_locally');
+          setCloudSyncStatus('syncing');
+          // A cache hit cannot prove that the account has no cloud document.
+          const snap = await getDocFromServer(doc(db, 'users', newUid, 'financialData', 'state'));
+          if (isCancelled) return;
+          const userKey = `${USER_STORAGE_KEY_PREFIX}${newUid}`;
+          if (snap.exists()) {
+            const cloudData = snap.data();
+            applyStatePayload(cloudData);
+            try {
+              const oldCache = localStorage.getItem(userKey);
+              // Preserve previous local data for recovery; never promote it by clock alone.
+              if (oldCache && oldCache !== JSON.stringify(cloudData) && !localStorage.getItem(`${userKey}:recovery`)) {
+                localStorage.setItem(`${userKey}:recovery`, oldCache);
+              }
+              localStorage.setItem(userKey, JSON.stringify(cloudData));
+            } catch (error: unknown) {
+              console.warn('Não foi possível atualizar o cache local:', error);
+            }
+          } else {
+            // Existing UID-specific data may be recovered; guest data is never imported implicitly.
+            const raw = localStorage.getItem(userKey);
+            if (raw) applyStatePayload(JSON.parse(raw));
+          }
+          setCloudSyncStatus(snap.exists() ? 'synced' : 'saved_locally');
+          if (snap.exists()) setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
         }
-      } catch (err) {
-        console.warn('Erro ao carregar/sincronizar dados no Firestore:', err);
-        setCloudSyncStatus('saved_locally');
-      } finally {
         if (!isCancelled) {
           currentIdentityRef.current = newUid;
-          setLoaded(true);
           isSyncReadyRef.current = true;
         }
+      } catch (error: unknown) {
+        if (isCancelled) return;
+        console.warn('Falha ao carregar os dados financeiros:', error);
+        const code = typeof error === 'object' && error !== null && 'code' in error
+          ? String(error.code) : 'erro-de-leitura';
+        setLoadError(`Não foi possível confirmar os dados da sua conta (${code}). Nenhum dado será enviado à nuvem. Verifique a conexão e tente novamente.`);
+        setCloudSyncStatus('saved_locally');
+      } finally {
+        if (!isCancelled) setLoaded(true);
       }
     }
 
     void switchIdentityAndLoad();
     return () => {
       isCancelled = true;
+      isSyncReadyRef.current = false;
+      if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
     };
-  }, [user, authLoading]);
+  }, [user?.uid, authLoading]);
 
   // 2. Persistência isolada por identidade + salvamento debounced no Firestore
   useEffect(() => {
@@ -394,6 +295,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
     const currentUid = user ? user.uid : null;
     if (currentIdentityRef.current !== currentUid) return;
+
+    if (skipHydrationSaveRef.current) {
+      skipHydrationSaveRef.current = false;
+      return;
+    }
 
     const stateToSave = {
       transactions,
@@ -430,7 +336,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         if (currentIdentityRef.current !== uidAtSchedule) return;
         try {
           const userDocRef = doc(db, 'users', uidAtSchedule, 'financialData', 'state');
-          await setDoc(userDocRef, stateToSave, { merge: true });
+          await setDoc(userDocRef, JSON.parse(JSON.stringify(stateToSave)), { merge: true });
           setCloudSyncStatus('synced');
           setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
         } catch (err) {
@@ -466,7 +372,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   // Explicit manual trigger for cloud sync
   const triggerCloudSync = async () => {
-    if (!user) return;
+    if (!user || !isSyncReadyRef.current || currentIdentityRef.current !== user.uid) return;
     try {
       setCloudSyncStatus('syncing');
       const stateToSave = {
@@ -487,7 +393,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         savedAt: new Date().toISOString(),
       };
       const userDocRef = doc(db, 'users', user.uid, 'financialData', 'state');
-      await setDoc(userDocRef, stateToSave, { merge: true });
+      await setDoc(userDocRef, JSON.parse(JSON.stringify(stateToSave)), { merge: true });
       setCloudSyncStatus('synced');
       setLastCloudSyncAt(new Date().toLocaleTimeString('pt-BR'));
     } catch (err) {
@@ -528,7 +434,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         else monthExpense += tx.amount;
       }
 
-      if (tx.type === 'expense') {
+      if (tx.type === 'expense' && !isSettled(tx)) {
         if (tx.date > todayStr || monthKey(tx.date) > currentMKey) {
           futureExpenses += tx.amount;
         }
@@ -582,10 +488,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     const balance = bankBalance - creditCardDebt;
     const savingsRate = monthIncome > 0 ? Math.max(0, Math.min(100, (monthNet / monthIncome) * 100)) : 0;
 
-    // As transações já abateram o saldo bancário ao serem cadastradas.
-    // Portanto, o balance (ex: R$ 206,00) JÁ É o saldo líquido final que sobra após abater todas as despesas lançadas!
-    const realFreeBalance = balance;
-    const projectedBalance = balance;
+    const pendingNet = transactions.reduce((total, tx) =>
+      isSettled(tx) ? total : total + (tx.type === 'income' ? tx.amount : -tx.amount), 0);
+    const pendingExpenses = transactions.reduce((total, tx) =>
+      !isSettled(tx) && tx.type === 'expense' ? total + tx.amount : total, 0);
+    const realFreeBalance = balance - pendingExpenses;
+    const projectedBalance = balance + pendingNet;
 
     return {
       balance,
@@ -659,6 +567,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const addTransaction = (tx: Omit<Transaction, 'id'>): Transaction => {
     const newTx: Transaction = {
       ...tx,
+      status: tx.status ?? (tx.date > todayISO() ? 'pending' : 'settled'),
       id: 'tx-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
     };
     setTransactions((prev) => [newTx, ...prev]);
@@ -668,7 +577,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       setBankAccounts((prev) =>
         prev.map((acc) => {
           if (acc.id !== tx.bankAccountId) return acc;
-          const delta = tx.type === 'income' ? tx.amount : -tx.amount;
+          const delta = bankMovement(newTx);
           return { ...acc, balance: acc.balance + delta, updatedAt: new Date().toISOString() };
         })
       );
@@ -684,7 +593,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setTransactions((prev) => prev.map((tx) => (tx.id === id ? updated : tx)));
 
     // Reconcile the account balance: undo the old movement, then apply the edited one.
-    const movement = (tx: Transaction) => tx.type === 'income' ? tx.amount : -tx.amount;
+    const movement = bankMovement;
     const accountDeltas = new Map<string, number>();
     if (previous.bankAccountId) {
       accountDeltas.set(previous.bankAccountId, (accountDeltas.get(previous.bankAccountId) || 0) - movement(previous));
@@ -711,13 +620,20 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
     // Deleting a movement must also undo its effect on the linked bank account.
     if (transaction.bankAccountId) {
-      const delta = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+      const delta = -bankMovement(transaction);
       setBankAccounts((prev) => prev.map((account) =>
         account.id === transaction.bankAccountId
           ? { ...account, balance: account.balance + delta, updatedAt: new Date().toISOString() }
           : account
       ));
     }
+  };
+
+  const repeatExpenses = (sourceIds: string[], targetMonth: string): void => {
+    setTransactions(previous => {
+      const { additions } = prepareExpenseRepeats(previous, sourceIds, targetMonth);
+      return additions.length ? [...additions, ...previous] : previous;
+    });
   };
 
   const addBankAccount = (acc: Omit<BankAccount, 'id' | 'updatedAt'>): BankAccount => {
@@ -1134,6 +1050,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        repeatExpenses,
         addBankAccount,
         updateBankAccount,
         deleteBankAccount,
@@ -1157,7 +1074,16 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         importAllData,
       }}
     >
-      {children}
+      {loadError ? (
+        <main role="alert" className="min-h-screen bg-slate-950 text-white p-8">
+          <h1 className="text-xl font-bold">Seus dados não foram carregados</h1>
+          <p className="my-4">{loadError}</p>
+          <button onClick={() => window.location.reload()} className="rounded bg-emerald-700 px-4 py-2">Tentar novamente</button>
+          <button onClick={() => void logOut()} className="ml-4 underline">Sair da conta</button>
+        </main>
+      ) : authLoading || !loaded || currentIdentityRef.current !== (user?.uid ?? null) ? (
+        <main role="status" className="min-h-screen bg-slate-950 text-white p-8">Carregando os dados da sua conta…</main>
+      ) : children}
     </FinanceContext.Provider>
   );
 }

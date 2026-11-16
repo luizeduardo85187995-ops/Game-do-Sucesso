@@ -77,7 +77,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       return;
     }
 
-    const uid = user.uid;
+    const authenticatedUser = user;
+    const uid = authenticatedUser.uid;
     const userCacheKey = `${STORAGE_KEY_PREFIX}${uid}`;
 
     // Enquanto o servidor não confirma, o usuário permanece FREE.
@@ -88,7 +89,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       try {
         // Se um pagamento chegou antes do primeiro login, tenta vinculá-lo ao UID real.
         try {
-          const idToken = await user.getIdToken();
+          const idToken = await authenticatedUser.getIdToken();
           await fetch('/api/subscriptions/claim-pending', {
             method: 'POST',
             headers: { Authorization: `Bearer ${idToken}` },
@@ -153,7 +154,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
 
     setIsChecking(true);
-    const uid = user.uid;
+    const authenticatedUser = user;
+    const uid = authenticatedUser.uid;
     const userCacheKey = `${STORAGE_KEY_PREFIX}${uid}`;
 
     try {

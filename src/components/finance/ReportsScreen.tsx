@@ -54,8 +54,9 @@ export default function ReportsScreen() {
     }
 
     if (tx.date) {
-      const d = new Date(tx.date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const key = monthKey(tx.date);
+      const [year, month] = key.split('-').map(Number);
+      const d = new Date(year, month - 1, 1);
       const label = d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).toUpperCase();
       if (!monthMap[key]) {
         monthMap[key] = { income: 0, expense: 0, label };

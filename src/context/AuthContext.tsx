@@ -49,7 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await logOut();
+    const result = await logOut();
+    if (!result.success) throw new Error(result.error || 'Não foi possível sair da conta.');
     setUser(null);
   };
 

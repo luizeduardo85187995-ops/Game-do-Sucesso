@@ -29,7 +29,7 @@ export default function GoogleAuthScreen() {
       if (!res.success) {
         setErrorMessage(res.error || 'Não foi possível completar o login com o Google.');
       } else {
-        setSuccessMessage('Login realizado com sucesso! Sua conta Google foi sincronizada.');
+        setSuccessMessage('Login realizado com sucesso. Os dados financeiros são verificados separadamente.');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Erro inesperado ao conectar.');

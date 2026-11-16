@@ -5,7 +5,11 @@ export interface Transaction {
   type: TransactionType;
   amount: number;
   category: string;
-  date: string;
+  date: string; // Data de referência/competência, independente do cadastro e pagamento.
+  status?: 'pending' | 'settled'; // Ausência: movimento legado já contabilizado.
+  paymentDate?: string;
+  repeatSourceId?: string;
+  repeatDay?: number;
   note?: string;
   bankAccountId?: string;
 }

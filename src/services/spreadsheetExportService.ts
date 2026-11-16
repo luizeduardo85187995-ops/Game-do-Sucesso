@@ -8,6 +8,7 @@
  * - Limpeza total de datas e valores monetários
  */
 
+import { isSettled } from '../utils/transactions';
 import { Transaction, BankAccount } from '../types/finance';
 import { formatDateBR, formatBRL, todayISO } from '../utils/format';
 
@@ -155,6 +156,8 @@ export async function exportExcelWithCharts(
     'Valor (R$)',
     'Conta Bancária',
     'Observação / Descrição',
+    'Situação',
+    'Data de pagamento/recebimento',
   ];
 
   const transactionsRows = transactions.map((t) => {
@@ -167,6 +170,8 @@ export async function exportExcelWithCharts(
       t.amount,
       bankName,
       t.note || '',
+      isSettled(t) ? 'Pago/Recebido' : 'Pendente',
+      formatDateBR(t.paymentDate || ''),
     ];
   });
 
@@ -250,7 +255,7 @@ export function exportCSVForExcel(
   transactions: Transaction[],
   bankAccounts: BankAccount[]
 ): void {
-  const headers = ['Data', 'Tipo', 'Categoria', 'Valor (R$)', 'Conta', 'Observação'];
+  const headers = ['Data', 'Tipo', 'Categoria', 'Valor (R$)', 'Conta', 'Observação', 'Situação', 'Pagamento/Recebimento'];
 
   const rows = transactions.map((t) => {
     const bankName = bankAccounts.find((b) => b.id === t.bankAccountId)?.bankName || 'Conta Corrente';
@@ -267,6 +272,8 @@ export function exportCSVForExcel(
       valueFormatted,
       `"${bankName}"`,
       `"${noteFormatted}"`,
+      isSettled(t) ? 'Pago/Recebido' : 'Pendente',
+      formatDateBR(t.paymentDate || ''),
     ];
   });
 

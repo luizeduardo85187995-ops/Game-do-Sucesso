@@ -1,3 +1,4 @@
+import OpenFinancePanel from './OpenFinancePanel';
 import React, { useState } from 'react';
 import {
   Building2,
@@ -135,6 +136,8 @@ export default function BanksScreen() {
           <span>Adicionar Conta</span>
         </button>
       </div>
+
+      <OpenFinancePanel />
 
       {/* Free Plan Bank Limit Banner */}
       {!isPro && (
