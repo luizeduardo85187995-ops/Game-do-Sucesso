@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { BankSnapshot, BankStatementEntry, ConnectedAccount } from '../../src/types/openFinance.js';
 
 const API_ORIGIN = 'https://api.pluggy.ai';
@@ -27,6 +28,41 @@ export function readPersonalConfig(env: NodeJS.ProcessEnv): PersonalConfig | nul
     throw new OpenFinanceError(503, 'Revise a configuração pessoal do Meu Pluggy no servidor.');
   }
   return { ownerUid, clientId, clientSecret, itemIds };
+}
+
+// Bump when the stored snapshot shape changes so older caches are never reused.
+export const SNAPSHOT_SCHEMA = 'v2';
+
+export function snapshotFingerprint(config: PersonalConfig): string {
+  return createHash('sha256').update([SNAPSHOT_SCHEMA, config.clientId, ...config.itemIds].join(':')).digest('hex');
+}
+
+/** Optional provider fields never abort a read: they are enrichment, not accounting data. */
+function optionalText(value: unknown, max = 80): string | null {
+  if (typeof value !== 'string') return null;
+  const clean = value.replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim();
+  return clean ? clean.slice(0, max) : null;
+}
+
+function optionalRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+/** Extracts counterparty name, operation and installments. Document numbers (CPF/CNPJ) are deliberately dropped. */
+export function enrichTransaction(tx: Record<string, unknown>, accountType: 'BANK' | 'CREDIT'): Pick<BankStatementEntry, 'providerCategory' | 'operation' | 'counterparty' | 'installment'> {
+  const payment = optionalRecord(tx.paymentData);
+  const merchant = optionalRecord(tx.merchant);
+  const card = optionalRecord(tx.creditCardMetadata);
+  const side = optionalRecord(tx.type === 'CREDIT' ? payment?.payer : payment?.receiver);
+  const method = optionalText(payment?.paymentMethod, 20)?.toUpperCase() ?? null;
+  const number = typeof card?.installmentNumber === 'number' ? card.installmentNumber : null;
+  const total = typeof card?.totalInstallments === 'number' ? card.totalInstallments : null;
+  return {
+    providerCategory: optionalText(tx.category),
+    operation: method ?? (accountType === 'CREDIT' ? 'CARD' : optionalText(tx.operationType, 20)?.toUpperCase() ?? null),
+    counterparty: optionalText(side?.name) ?? optionalText(merchant?.businessName) ?? optionalText(merchant?.name),
+    installment: number && total && total > 1 && number <= total ? { number, total } : null,
+  };
 }
 
 export function assertOwner(uid: string, ownerUid: string | undefined): void {
@@ -138,7 +174,7 @@ export async function fetchPersonalSnapshot(
           const entryId = string(tx.id);
           transactions.set(`${id}:${entryId}`, { id: entryId, accountId: id, date,
             description: string(tx.description), amount: number(tx.amount), currency: string(tx.currencyCode),
-            status: string(tx.status), direction: tx.type });
+            status: string(tx.status), direction: tx.type, ...enrichTransaction(tx, account.type as 'BANK' | 'CREDIT') });
           if (transactions.size > 5000) throw new OpenFinanceError(413, 'Extrato muito extenso para esta consulta mensal.');
         }
         if (data.next === null) break;
