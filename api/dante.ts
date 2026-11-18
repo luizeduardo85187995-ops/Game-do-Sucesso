@@ -644,7 +644,8 @@ export async function POST(request: Request) {
         ],
         temperature: mode === 'vira_homem' ? 0.68 : 0.52,
         top_p: 0.86,
-        max_completion_tokens: deepQuestion && bankAnalysis ? 1600 : 900,
+        // Reasoning models spend completion tokens thinking before answering; leave room for both.
+        max_completion_tokens: deepQuestion ? 4096 : 1200,
         reasoning_effort: deepQuestion ? 'medium' : 'low',
       }),
       signal: controller.signal,
@@ -677,7 +678,14 @@ export async function POST(request: Request) {
 
     const text = safeText(payload?.choices?.[0]?.message?.content, 14_000);
     if (!text) {
-      return Response.json({ success: false, message: 'A IA respondeu sem conteúdo.' }, { status: 502 });
+      const finishReason = safeText(payload?.choices?.[0]?.finish_reason, 30);
+      console.warn('[Dante/Groq] resposta vazia', { finishReason, completionTokens: payload?.usage?.completion_tokens });
+      return Response.json({
+        success: false,
+        message: finishReason === 'length'
+          ? 'A análise ficou longa demais para uma resposta. Peça uma parte por vez (ex.: "analise só os Pix").'
+          : 'A IA respondeu sem conteúdo.',
+      }, { status: 502 });
     }
 
     const usage = payload?.usage || {};
