@@ -248,7 +248,8 @@ function buildCategoryRanking(
 
 function buildRelevantTransactions(
   transactions: NonNullable<FinanceContextData['transactions']>,
-  userMessage: string
+  userMessage: string,
+  limit = 55
 ): string {
   const ignored = new Set([
     'quanto','como','onde','porque','por','que','meu','minha','meus','minhas','gasto','gastos','despesa','despesas',
@@ -264,10 +265,10 @@ function buildRelevantTransactions(
     return queryTokens.some((token) => hay.includes(token));
   });
 
-  const combined = [...matched.slice(0, 35)];
+  const combined = [...matched.slice(0, Math.min(35, limit))];
   for (const t of transactions.slice(0, 35)) {
+    if (combined.length >= limit) break;
     if (!combined.some((x) => x.id === t.id)) combined.push(t);
-    if (combined.length >= 55) break;
   }
 
   return combined
@@ -275,7 +276,7 @@ function buildRelevantTransactions(
     .join('\n');
 }
 
-function buildFinancialSnapshot(context: FinanceContextData, userMessage: string): string {
+function buildFinancialSnapshot(context: FinanceContextData, userMessage: string, compact = false): string {
   const transactions = context.transactions || [];
   const today = new Date();
   const todayISO = today.toISOString().slice(0, 10);
@@ -354,7 +355,8 @@ function buildFinancialSnapshot(context: FinanceContextData, userMessage: string
     .map((d) => `- ${safeText(d.paymentDate, 20)} | ${safeText(d.ticker, 40)} | ${formatBRL(safeNumber(d.totalAmount))} | ${safeText(d.status, 40)}`)
     .join('\n');
 
-  const relevantTransactions = buildRelevantTransactions(transactions, userMessage);
+  // With bank data present the manual ledger is secondary: list fewer rows to stay within the token budget.
+  const relevantTransactions = buildRelevantTransactions(transactions, userMessage, compact ? 15 : 55);
 
   const topCurrentText = topCurrent
     .map(([cat, value], i) => `${i + 1}. ${cat}: ${formatBRL(value)}${currentExpense > 0 ? ` (${Math.round((value / currentExpense) * 100)}%)` : ''}`)
@@ -456,7 +458,7 @@ ${bankAnalysis}
 }
 
 function buildSystemPrompt(context: FinanceContextData, userMessage: string, mode: DanteMode, bankAnalysis = ''): string {
-  const snapshot = buildFinancialSnapshot(context, userMessage);
+  const snapshot = buildFinancialSnapshot(context, userMessage, Boolean(bankAnalysis));
 
   const personality = mode === 'vira_homem'
     ? `MODO ATIVO: "VIRA HOMEM" 🔥
@@ -597,17 +599,28 @@ export async function POST(request: Request) {
   }
 
   const mode: DanteMode = body?.mode === 'vira_homem' ? 'vira_homem' : 'equilibrado';
-  const history: ChatMessage[] = (Array.isArray(body?.history) ? body.history : [])
+  const fullHistory: ChatMessage[] = (Array.isArray(body?.history) ? body.history : [])
     .filter((m: any) => m?.role === 'user' || m?.role === 'assistant')
     .slice(-12)
     .map((m: any) => ({ role: m.role, content: safeText(m.content, 4500) }));
+  // Keep the newest turns within a fixed budget (the provider limits input tokens per minute).
+  const HISTORY_CHAR_BUDGET = 3500;
+  const history: ChatMessage[] = [];
+  let historyChars = 0;
+  for (const m of [...fullHistory].reverse()) {
+    if (historyChars + m.content.length > HISTORY_CHAR_BUDGET) break;
+    history.unshift(m);
+    historyChars += m.content.length;
+  }
 
   const context = sanitizeContext(body?.context);
   // Bank data is read server-side for the configured owner only; never trusted from the browser payload.
   let bankAnalysis = '';
   try {
     const bank = await loadOwnerBankData(adminDb, access.uid);
-    if (bank) bankAnalysis = buildBankAnalysis(bank.snapshots, bank.annotations, bank.missingMonths);
+    // Full detail only when the question is about money flow; otherwise a compact summary saves tokens.
+    const aboutBank = /(extrato|pix|banco|nubank|analis|gast|dinheiro|entrad|said|saíd|categor|conta|fatura|cart)/i.test(userMessage);
+    if (bank) bankAnalysis = buildBankAnalysis(bank.snapshots, bank.annotations, bank.missingMonths, aboutBank ? 'full' : 'summary');
   } catch (error: unknown) {
     console.warn('[Dante] extrato bancário indisponível', error instanceof Error ? error.name : 'erro');
     bankAnalysis = 'Extrato bancário indisponível nesta consulta. Não tire conclusões sobre as contas conectadas.';
@@ -658,12 +671,12 @@ export async function POST(request: Request) {
         {
           success: false,
           message:
-            response.status === 429
-              ? 'O Dante atingiu o limite temporário da IA. Tente novamente em instantes.'
+            response.status === 429 || response.status === 413
+              ? `O plano gratuito da IA aceita uma análise grande por minuto. Tente de novo em ${Math.min(60, Math.ceil(Number(retryAfter) || 60))} segundos.`
               : 'O Dante está temporariamente indisponível. Tente novamente em instantes.',
           retryAfter: retryAfter || undefined,
         },
-        { status: response.status === 429 ? 429 : 502 }
+        { status: response.status === 429 || response.status === 413 ? 429 : 502 }
       );
     }
 
@@ -682,6 +695,8 @@ export async function POST(request: Request) {
       completionTokens: usage.completion_tokens,
       totalTokens: usage.total_tokens,
       transactionsAnalyzed: (context.transactions || []).length,
+      bankChars: bankAnalysis.length,
+      systemChars: systemPrompt.length,
     });
 
     return Response.json({
