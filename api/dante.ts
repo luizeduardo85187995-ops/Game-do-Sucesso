@@ -594,8 +594,11 @@ export async function POST(request: Request) {
   }
 
   const mode: DanteMode = body?.mode === 'vira_homem' ? 'vira_homem' : 'equilibrado';
+  // Client-side fallbacks/limit notices are not Dante's words; replaying them makes the model imitate them.
+  const nonModelReply = /^(O motor do Dante está temporariamente|O Dante está temporariamente sem conexão|⏳|⚠️)/;
   const fullHistory: ChatMessage[] = (Array.isArray(body?.history) ? body.history : [])
     .filter((m: any) => m?.role === 'user' || m?.role === 'assistant')
+    .filter((m: any) => !(m.role === 'assistant' && nonModelReply.test(String(m.content || '').trim())))
     .slice(-12)
     .map((m: any) => ({ role: m.role, content: safeText(m.content, 4500) }));
   // Keep the newest turns within a fixed budget (the provider limits input tokens per minute).
