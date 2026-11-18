@@ -110,7 +110,13 @@ function sumBy<K>(rows: ClassifiedTx[], keyOf: (t: ClassifiedTx) => K | null): M
 
 const top = <K>(map: Map<K, { total: number; count: number }>, n: number) => [...map.entries()].sort((a, b) => b[1].total - a[1].total).slice(0, n);
 const isPix = (t: ClassifiedTx) => t.operation === 'PIX' || /\bpix\b/i.test(t.description);
-const who = (t: ClassifiedTx) => promptSafe(t.counterparty || t.description, 50);
+/** Nubank often embeds the counterparty after a pipe: "Transferência Recebida|Fulano de Tal". */
+export function counterpartyOf(t: Pick<BankStatementEntry, 'counterparty' | 'description'>): string {
+  if (t.counterparty) return t.counterparty;
+  const piped = t.description.split('|').slice(1).join(' ').trim();
+  return piped || t.description;
+}
+const who = (t: ClassifiedTx) => promptSafe(counterpartyOf(t), 50);
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 /**
@@ -144,14 +150,17 @@ export function buildBankAnalysis(
   if (missingMonths.length) accountsSection.push(`- Meses sem extrato consultado: ${missingMonths.join(', ')} (não conclua nada sobre eles).`);
   sections.push(accountsSection);
 
-  const monthly = ['RESUMO MENSAL (internas, fatura e aplicações/resgates EXCLUÍDOS de entradas e saídas)'];
+  const monthly = ['RESUMO MENSAL (aplicações, resgates, fatura e transferências entre contas próprias NÃO são entrada nem saída; aparecem à parte)'];
   for (const m of months) {
     const rows = txs.filter(t => t.date.startsWith(m));
     const sumKind = (k: FlowKind) => rows.filter(t => t.kind === k).reduce((s, t) => s + t.value, 0);
     const inc = sumKind('income');
     const exp = sumKind('expense') - sumKind('refund');
     const card = rows.filter(t => t.kind === 'expense' && t.accountType === 'CREDIT').reduce((s, t) => s + t.value, 0);
-    monthly.push(`- ${m}: entradas ${brl(inc)} | saídas ${brl(exp)} (cartão ${brl(card)}) | resultado ${brl(inc - exp)} | internas ignoradas ${brl(sumKind('internal'))} | ${rows.length} movimentações`);
+    const internal = rows.filter(t => t.kind === 'internal');
+    const parked = internal.filter(t => t.accountType === 'BANK' && t.direction === 'DEBIT').reduce((s, t) => s + t.value, 0);
+    const back = internal.filter(t => t.accountType === 'BANK' && t.direction === 'CREDIT').reduce((s, t) => s + t.value, 0);
+    monthly.push(`- ${m}: entradas ${brl(inc)} | saídas ${brl(exp)} (cartão ${brl(card)}) | resultado ${brl(inc - exp)} | guardado/enviado a investimentos, fatura ou contas próprias ${brl(parked)} | voltou de investimentos/contas próprias ${brl(back)} | ${rows.length} movimentações`);
   }
   sections.push(monthly);
 
@@ -175,7 +184,7 @@ export function buildBankAnalysis(
     // Recurring: same counterparty/description in 2+ distinct months, or 3+ times overall.
     const groups = new Map<string, ClassifiedTx[]>();
     for (const t of expenses) {
-      const k = normalize(t.counterparty || t.description).slice(0, 40);
+      const k = normalize(counterpartyOf(t)).slice(0, 40);
       if (k.length >= 3) groups.set(k, [...(groups.get(k) ?? []), t]);
     }
     const recurring = [...groups.values()]
