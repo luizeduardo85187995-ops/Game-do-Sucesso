@@ -345,7 +345,7 @@ function buildFinancialSnapshot(context: FinanceContextData, userMessage: string
       const pct = safeNumber(i.totalProfitLossPercent);
       return `- ${safeText(i.code, 40) || safeText(i.name, 120) || safeText(i.type, 60)}: valor ${formatBRL(currentValue)}${pl || pct ? ` | resultado ${formatBRL(pl)} (${pct.toFixed(1)}%)` : ''}${i.sector ? ` | setor ${safeText(i.sector, 80)}` : ''}`;
     })
-    .slice(0, 60)
+    .slice(0, compact ? 15 : 60)
     .join('\n');
 
   const upcomingDividends = (context.dividendEvents || [])
@@ -356,7 +356,7 @@ function buildFinancialSnapshot(context: FinanceContextData, userMessage: string
     .join('\n');
 
   // With bank data present the manual ledger is secondary: list fewer rows to stay within the token budget.
-  const relevantTransactions = buildRelevantTransactions(transactions, userMessage, compact ? 15 : 55);
+  const relevantTransactions = buildRelevantTransactions(transactions, userMessage, compact ? 10 : 55);
 
   const topCurrentText = topCurrent
     .map(([cat, value], i) => `${i + 1}. ${cat}: ${formatBRL(value)}${currentExpense > 0 ? ` (${Math.round((value / currentExpense) * 100)}%)` : ''}`)
@@ -403,12 +403,12 @@ ${monthlyTrend.join('\n')}
 MAIORES CATEGORIAS DO MÊS
 ${topCurrentText || '- Sem despesas suficientes.'}
 
-MAIORES CATEGORIAS DOS ÚLTIMOS 90 DIAS
+${compact ? '' : `MAIORES CATEGORIAS DOS ÚLTIMOS 90 DIAS
 ${top90Text || '- Sem despesas suficientes.'}
 
 DESCRIÇÕES/COMPRAS RECORRENTES NOS ÚLTIMOS 90 DIAS
 ${recurringText || '- Nenhuma recorrência clara pelas descrições.'}
-
+`}
 CONTAS
 ${accounts || '- Nenhuma conta cadastrada.'}
 
@@ -423,9 +423,9 @@ INVESTIMENTOS
 ${investments || '- Nenhum investimento cadastrado.'}
 - Foco de investimento configurado: ${safeText(context.investmentFocus, 60) || 'não informado'}
 
-PROVENTOS FUTUROS
+${compact ? '' : `PROVENTOS FUTUROS
 ${upcomingDividends || '- Nenhum provento futuro relevante cadastrado.'}
-
+`}
 LANÇAMENTOS MANUAIS MAIS RECENTES E/OU RELEVANTES PARA A PERGUNTA
 ${relevantTransactions || '- Nenhum lançamento relevante encontrado.'}
 `.trim();
@@ -435,22 +435,17 @@ function buildBankSection(bankAnalysis: string): string {
   if (!bankAnalysis) return '';
   return `
 
-EXTRATO BANCÁRIO REAL (Open Finance via Meu Pluggy) — FONTE DA VERDADE DAS CONTAS CONECTADAS
-- Estes dados vêm do banco e estão VINCULADOS às contas. Os lançamentos manuais do app são um registro paralelo, DESVINCULADO.
-- Para saldo, entradas e saídas reais das contas conectadas, use SEMPRE o extrato bancário.
-- Nunca some banco + manual para calcular gasto. Se um lançamento manual parecer o mesmo do banco (mesmo valor, data próxima), trate como o mesmo movimento e diga isso.
-- Movimentações do tipo "internal" (entre contas do titular, pagamento de fatura, aplicação/resgate) NÃO são receita nem despesa.
-- O usuário não pode alterar valor nem data do banco; só categoria e nota, em Lançamentos → aba "Banco". Ao sugerir categoria, diga exatamente qual e onde salvar.
-
-ANÁLISE FINANCEIRA PROFUNDA — quando pedirem análise do extrato, do banco, dos Pix ou "onde está indo meu dinheiro":
-1. Fluxo: entradas x saídas reais por mês, resultado e tendência. Diga se a pessoa gasta mais do que ganha.
-2. Para onde o dinheiro vai: categorias, destinatários de Pix, gastos recorrentes (assinaturas/contas fixas), efeito formiga, parcelamentos que já comprometem meses futuros. Juros, tarifas, apostas e empréstimos são sinais de alerta: destaque com valor.
-3. INTERROGUE os Pix: escolha de 3 a 5 Pix sem explicação mais relevantes (maior valor ou destinatário recorrente) e PERGUNTE o que foram, com data, valor e destinatário. Ex.: "O Pix de R$ 350,00 para Fulano em 05/11 foi o quê? Aluguel, empréstimo, família, compra?". Uma pergunta objetiva por item.
-4. Quando o usuário responder, reclassifique na análise, recalcule mentalmente o impacto citando os números e recomende a categoria para salvar.
-5. Questione incoerências: Pix de ida e volta com a mesma pessoa (empréstimo informal?), muitos Pix pequenos para o mesmo destinatário, saídas maiores que entradas, gasto recorrente que parece assinatura esquecida.
-6. Nunca chame algo de suspeito ou fraude sem evidência: pergunte.
-7. Feche com um diagnóstico curto e no máximo 3 ações com valor ou limite mensurável.
-Numa análise profunda você pode usar até ~450 palavras.
+EXTRATO BANCÁRIO REAL (Open Finance) — FONTE DA VERDADE DAS CONTAS CONECTADAS
+- Banco = vinculado; lançamentos manuais = registro paralelo DESVINCULADO. Para saldo e fluxo real, use o banco. Nunca some banco + manual; se um manual parecer o mesmo movimento do banco (valor igual, data próxima), diga isso.
+- Tipo "internal" (entre contas do titular, fatura, aplicação/resgate) não é receita nem despesa.
+- Valor e data do banco não mudam; categoria e nota sim, em Lançamentos → aba "Banco". Ao sugerir categoria, diga qual e onde.
+ANÁLISE PROFUNDA (quando pedirem análise do extrato, Pix ou para onde vai o dinheiro):
+1. Fluxo mensal real e tendência; diga se gasta mais do que ganha.
+2. Para onde vai: categorias, destinatários de Pix, recorrentes, efeito formiga, parcelas futuras. Juros, tarifas, apostas e empréstimos = alerta com valor.
+3. Pergunte sobre 3 a 5 Pix sem explicação mais relevantes (data, valor, destinatário): "O Pix de R$ X para Fulano em DD/MM foi o quê?".
+4. Com a resposta, reclassifique, cite o impacto e recomende a categoria para salvar.
+5. Questione incoerências (ida e volta com a mesma pessoa, muitos Pix pequenos ao mesmo destinatário). Sem evidência, pergunte; não acuse.
+6. Feche com diagnóstico curto e até 3 ações mensuráveis. Até ~450 palavras.
 
 <EXTRATO_BANCARIO>
 ${bankAnalysis}
@@ -604,7 +599,7 @@ export async function POST(request: Request) {
     .slice(-12)
     .map((m: any) => ({ role: m.role, content: safeText(m.content, 4500) }));
   // Keep the newest turns within a fixed budget (the provider limits input tokens per minute).
-  const HISTORY_CHAR_BUDGET = 3500;
+  const HISTORY_CHAR_BUDGET = 2000;
   const history: ChatMessage[] = [];
   let historyChars = 0;
   for (const m of [...fullHistory].reverse()) {
