@@ -445,7 +445,7 @@ ANÁLISE PROFUNDA (quando pedirem análise do extrato, Pix ou para onde vai o di
 3. Pergunte sobre 3 a 5 Pix sem explicação mais relevantes (data, valor, destinatário): "O Pix de R$ X para Fulano em DD/MM foi o quê?".
 4. Com a resposta, reclassifique, cite o impacto e recomende a categoria para salvar.
 5. Questione incoerências (ida e volta com a mesma pessoa, muitos Pix pequenos ao mesmo destinatário). Sem evidência, pergunte; não acuse.
-6. Feche com diagnóstico curto e até 3 ações mensuráveis. Até ~450 palavras.
+6. Feche com diagnóstico curto e até 3 ações mensuráveis. Até ~280 palavras: priorize o que mais pesa e ofereça continuar (\"quer que eu detalhe X?\").
 
 <EXTRATO_BANCARIO>
 ${bankAnalysis}
@@ -624,6 +624,9 @@ export async function POST(request: Request) {
   const model = (process.env.GROQ_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 
   const deepQuestion = /(analis|por que|porque|estrateg|planej|compar|onde estou errando|habito|hábito|evolu|tendenc|tendênc|extrato|pix|banco|nubank)/i.test(userMessage);
+  // Groq free tier rejects any request reserving more than its output-tokens-per-minute cap (1000).
+  // Raise GROQ_MAX_OUTPUT_TOKENS after upgrading the provider plan.
+  const maxOutputTokens = Math.min(8192, Math.max(300, Math.floor(Number(process.env.GROQ_MAX_OUTPUT_TOKENS) || 1000)));
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), deepQuestion ? 40_000 : 20_000);
   const startedAt = Date.now();
@@ -644,9 +647,9 @@ export async function POST(request: Request) {
         ],
         temperature: mode === 'vira_homem' ? 0.68 : 0.52,
         top_p: 0.86,
-        // Reasoning models spend completion tokens thinking before answering; leave room for both.
-        max_completion_tokens: deepQuestion ? 4096 : 1200,
-        reasoning_effort: deepQuestion ? 'medium' : 'low',
+        max_completion_tokens: maxOutputTokens,
+        // Free tier counts reasoning in the 1k output-tokens/min cap: keep thinking short so the answer fits.
+        reasoning_effort: 'low',
       }),
       signal: controller.signal,
     });
