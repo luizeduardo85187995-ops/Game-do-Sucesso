@@ -117,8 +117,21 @@ const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
  * Deterministic financial X-ray. All arithmetic happens here so the language model only interprets numbers.
  * Returns plain text meant to live inside a delimited data block of the system prompt.
  */
-export function buildBankAnalysis(snapshots: BankSnapshot[], annotations: Record<string, BankTxAnnotation>, missingMonths: string[] = []): string {
+export type AnalysisDetail = 'full' | 'summary';
+
+/** ~2.000 tokens: keeps the whole Dante prompt under the provider's 7k input-tokens-per-minute budget. */
+export const MAX_ANALYSIS_CHARS = 6500;
+
+export function buildBankAnalysis(
+  snapshots: BankSnapshot[],
+  annotations: Record<string, BankTxAnnotation>,
+  missingMonths: string[] = [],
+  detail: AnalysisDetail = 'full',
+  maxChars = MAX_ANALYSIS_CHARS,
+): string {
   if (snapshots.length === 0) return 'Nenhum extrato bancário consultado ainda.';
+  const full = detail === 'full';
+  const n = (fullCount: number, summaryCount: number) => (full ? fullCount : summaryCount);
   const { txs, accounts } = mergeSnapshots(snapshots, annotations);
   const months = [...new Set(txs.map(t => t.date.slice(0, 7)))].sort();
   const expenses = txs.filter(t => t.kind === 'expense');
@@ -139,7 +152,7 @@ export function buildBankAnalysis(snapshots: BankSnapshot[], annotations: Record
     lines.push(`- ${m}: entradas ${brl(inc)} | saídas ${brl(exp - ref)} (cartão ${brl(card)}) | resultado ${brl(inc - exp + ref)} | internas ignoradas ${brl(internal)} | ${rows.length} movimentações`);
   }
 
-  const byCategory = top(sumBy(expenses, t => t.category), 14);
+  const byCategory = top(sumBy(expenses, t => t.category), n(10, 6));
   lines.push('', 'DESPESAS POR CATEGORIA (todo o período; categoria do usuário tem prioridade sobre a do banco)');
   for (const [cat, v] of byCategory) lines.push(`- ${promptSafe(cat, 40)}: ${brl(v.total)} em ${v.count}x`);
   const uncategorized = expenses.filter(t => t.categorySource === 'nenhuma');
@@ -147,13 +160,14 @@ export function buildBankAnalysis(snapshots: BankSnapshot[], annotations: Record
 
   const pixOut = expenses.filter(isPix);
   lines.push('', `PIX ENVIADOS POR DESTINATÁRIO (total ${brl(pixOut.reduce((s, t) => s + t.value, 0))} em ${pixOut.length} Pix)`);
-  for (const [name, v] of top(sumBy(pixOut, who), 15)) lines.push(`- ${name}: ${brl(v.total)} em ${v.count}x`);
+  for (const [name, v] of top(sumBy(pixOut, who), n(10, 5))) lines.push(`- ${name}: ${brl(v.total)} em ${v.count}x`);
   const pixIn = txs.filter(t => t.kind === 'income' && isPix(t));
-  if (pixIn.length) {
+  if (pixIn.length && full) {
     lines.push('', 'PIX RECEBIDOS POR PAGADOR');
-    for (const [name, v] of top(sumBy(pixIn, who), 10)) lines.push(`- ${name}: ${brl(v.total)} em ${v.count}x`);
+    for (const [name, v] of top(sumBy(pixIn, who), 6)) lines.push(`- ${name}: ${brl(v.total)} em ${v.count}x`);
   }
 
+  if (full) {
   // Recurring: same counterparty/description in 2+ distinct months, or 3+ times overall.
   const groups = new Map<string, ClassifiedTx[]>();
   for (const t of expenses) {
@@ -164,7 +178,7 @@ export function buildBankAnalysis(snapshots: BankSnapshot[], annotations: Record
   const recurring = [...groups.values()]
     .filter(g => new Set(g.map(t => t.date.slice(0, 7))).size >= 2 || g.length >= 3)
     .map(g => ({ name: who(g[0]), count: g.length, total: g.reduce((s, t) => s + t.value, 0), avg: g.reduce((s, t) => s + t.value, 0) / g.length, months: new Set(g.map(t => t.date.slice(0, 7))).size }))
-    .sort((a, b) => b.total - a.total).slice(0, 15);
+    .sort((a, b) => b.total - a.total).slice(0, 10);
   lines.push('', 'GASTOS RECORRENTES (possíveis contas fixas, assinaturas ou hábitos)');
   for (const r of recurring) lines.push(`- ${r.name}: ${r.count}x em ${r.months} mês(es), média ${brl(r.avg)}, total ${brl(r.total)}`);
   if (!recurring.length) lines.push('- Nenhuma recorrência clara no período disponível.');
@@ -173,7 +187,9 @@ export function buildBankAnalysis(snapshots: BankSnapshot[], annotations: Record
   lines.push('', 'EFEITO FORMIGA');
   lines.push(`- Saídas abaixo de R$ 30: ${small.length}x somando ${brl(small.reduce((s, t) => s + t.value, 0))}`);
   const byWeekday = sumBy(expenses, t => WEEKDAYS[new Date(`${t.date}T12:00:00Z`).getUTCDay()]);
-  lines.push(`- Saídas por dia da semana: ${WEEKDAYS.map(d => `${d} ${brl(byWeekday.get(d)?.total ?? 0)}`).join(' | ')}`);
+  const weekend = (byWeekday.get('sáb')?.total ?? 0) + (byWeekday.get('dom')?.total ?? 0);
+  const totalExp = expenses.reduce((s, t) => s + t.value, 0);
+  if (totalExp > 0) lines.push(`- Fim de semana: ${Math.round((weekend / totalExp) * 100)}% das saídas`);
 
   const installments = new Map<string, ClassifiedTx>();
   for (const t of expenses.filter(t => t.installment)) {
@@ -183,25 +199,36 @@ export function buildBankAnalysis(snapshots: BankSnapshot[], annotations: Record
   }
   if (installments.size) {
     lines.push('', 'PARCELAMENTOS NO CARTÃO (parcela mais recente vista)');
-    for (const t of [...installments.values()].sort((a, b) => b.value - a.value).slice(0, 12)) {
+    for (const t of [...installments.values()].sort((a, b) => b.value - a.value).slice(0, 8)) {
       const left = t.installment!.total - t.installment!.number;
       lines.push(`- ${who(t)}: parcela ${t.installment!.number}/${t.installment!.total} de ${brl(t.value)} | restam ${left} (${brl(left * t.value)})`);
     }
   }
 
   lines.push('', 'MAIORES SAÍDAS');
-  for (const t of [...expenses].sort((a, b) => b.value - a.value).slice(0, 10)) lines.push(`- ${t.date} | ${brl(t.value)} | ${who(t)} | ${promptSafe(t.category, 30)}${t.note ? ` | nota: ${promptSafe(t.note, 60)}` : ''}`);
+  for (const t of [...expenses].sort((a, b) => b.value - a.value).slice(0, 8)) lines.push(`- ${t.date} | ${brl(t.value)} | ${who(t)} | ${promptSafe(t.category, 30)}${t.note ? ` | nota: ${promptSafe(t.note, 60)}` : ''}`);
 
-  const unexplained = pixOut.filter(t => t.categorySource !== 'usuario' && !t.note).sort((a, b) => b.value - a.value).slice(0, 12);
+  }
+
+  const unexplained = pixOut.filter(t => t.categorySource !== 'usuario' && !t.note).sort((a, b) => b.value - a.value).slice(0, n(10, 5));
   lines.push('', 'PIX ENVIADOS SEM EXPLICAÇÃO DO USUÁRIO (candidatos a perguntar)');
   for (const t of unexplained) lines.push(`- ${t.date} | ${brl(t.value)} | para ${who(t)}`);
   if (!unexplained.length) lines.push('- Todos os Pix enviados já têm categoria ou nota do usuário.');
 
-  lines.push('', 'MOVIMENTAÇÕES RECENTES (data | valor | conta | operação | contraparte/descrição | categoria | tipo | nota do usuário)');
-  for (const t of txs.slice(0, 120)) {
-    const sign = t.kind === 'income' || t.kind === 'refund' ? '+' : t.kind === 'internal' ? '↔' : '-';
-    lines.push(`${t.date} | ${sign}${brl(t.value)} | ${t.accountLabel} | ${t.operation ?? '-'} | ${who(t)} | ${promptSafe(t.category, 30)} | ${t.kind}${t.installment ? ` | parcela ${t.installment.number}/${t.installment.total}` : ''}${t.note ? ` | nota: ${promptSafe(t.note, 80)}` : ''}`);
+  const head = lines.join('\n');
+  if (!full) return head.slice(0, maxChars);
+
+  // Recent non-internal movements fill the remaining budget; totals above already cover everything.
+  const recent = txs.filter(t => t.kind !== 'internal');
+  const out = [head, '', 'MOVIMENTAÇÕES RECENTES (data | valor | operação | contraparte | categoria | nota)'];
+  let size = out.join('\n').length;
+  let shown = 0;
+  for (const t of recent) {
+    const sign = t.kind === 'income' || t.kind === 'refund' ? '+' : '-';
+    const line = `${t.date.slice(5)} | ${sign}${brl(t.value)} | ${t.operation ?? '-'} | ${who(t)} | ${promptSafe(t.category, 24)}${t.installment ? ` | ${t.installment.number}/${t.installment.total}` : ''}${t.note ? ` | nota: ${promptSafe(t.note, 60)}` : ''}`;
+    if (size + line.length + 1 > maxChars - 80 || shown >= 60) break;
+    out.push(line); size += line.length + 1; shown += 1;
   }
-  if (txs.length > 120) lines.push(`(+${txs.length - 120} movimentações mais antigas já consideradas nos totais acima)`);
-  return lines.join('\n');
+  if (recent.length > shown) out.push(`(+${recent.length - shown} movimentações não listadas, já incluídas nos totais)`);
+  return out.join('\n').slice(0, maxChars);
 }
