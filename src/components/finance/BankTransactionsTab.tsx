@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Landmark, Lock, RefreshCw, Search, StickyNote } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFinance } from '../../context/FinanceContext';
-import { classify, type ClassifiedTx } from '../../../api/_lib/bankAnalysis';
+import { classify, counterpartyOf, type ClassifiedTx } from '../../../api/_lib/bankAnalysis';
 import { INTERNAL_TRANSFER_CATEGORY, type BankSnapshot, type OpenFinanceResponse } from '../../types/openFinance';
 import { formatBRL, formatDateBR } from '../../utils/format';
 
@@ -162,13 +162,13 @@ export default function BankTransactionsTab({ month }: Props) {
             return (
               <li key={row.key} className="cyber-card rounded-xl p-3 grid gap-2 sm:grid-cols-[1fr_auto] items-start">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{row.counterparty || row.description}</p>
+                  <p className="text-sm font-semibold text-white truncate">{counterpartyOf(row)}</p>
                   <p className="text-[11px] text-slate-400 truncate">
                     {formatDateBR(row.date)} · {row.accountLabel}{row.operation ? ` · ${row.operation}` : ''}{row.installment ? ` · parcela ${row.installment.number}/${row.installment.total}` : ''} · {KIND_LABEL[row.kind]}
                     {row.counterparty && row.counterparty !== row.description ? ` · ${row.description}` : ''}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <select aria-label={`Categoria de ${row.counterparty || row.description}`} value={userCategory} onChange={(e) => changeCategory(row, e.target.value)} className="bg-slate-800 border border-slate-600 rounded-lg p-1.5 text-xs text-white max-w-[14rem]">
+                    <select aria-label={`Categoria de ${counterpartyOf(row)}`} value={userCategory} onChange={(e) => changeCategory(row, e.target.value)} className="bg-slate-800 border border-slate-600 rounded-lg p-1.5 text-xs text-white max-w-[14rem]">
                       <option value="">{providerLabel ? `Banco: ${providerLabel}` : 'Sem categoria'}</option>
                       {options.map((c) => <option key={c} value={c}>{c}</option>)}
                       <option value={INTERNAL_TRANSFER_CATEGORY}>↔ {INTERNAL_TRANSFER_CATEGORY}</option>
