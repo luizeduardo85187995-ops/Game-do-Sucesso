@@ -10,6 +10,9 @@
   "functions": {
     "api/open-finance.ts": {
       "maxDuration": 60
+    },
+    "api/dante.ts": {
+      "maxDuration": 60
     }
   }
 }
