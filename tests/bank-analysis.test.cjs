@@ -69,7 +69,9 @@ test('raio-X: totais corretos, Pix por destinatário, perguntas só do que falta
   const annotations = { 'acc-bank:p1': { category: 'Moradia', note: 'aluguel', updatedAt: '' } };
   const text = a.buildBankAnalysis([dup, nov], annotations, ['2026-09']);
   assert.match(text, /2026-11: entradas R\$\s?3\.000,00 \| saídas R\$\s?525,00 \(cartão R\$\s?100,00\)/);
-  assert.match(text, /internas ignoradas R\$\s?186,38/);
+  assert.match(text, /guardado\/enviado a investimentos, fatura ou contas próprias R\$\s?186,38/);
+  assert.equal(a.counterpartyOf({ counterparty: null, description: 'Transferência Recebida|Lidia Souza' }), 'Lidia Souza');
+  assert.equal(a.counterpartyOf({ counterparty: null, description: 'Compra no débito' }), 'Compra no débito');
   assert.match(text, /Maria: R\$\s?65,00 em 2x/);
   assert.match(text, /Moradia: R\$\s?350,00/);
   assert.match(text, /parcela 2\/10 de R\$\s?100,00 \| restam 8 \(R\$\s?800,00\)/);
