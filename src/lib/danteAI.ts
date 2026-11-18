@@ -136,7 +136,8 @@ export async function callDanteAI(
 
   const idToken = await user.getIdToken();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 24_000);
+  // Deep bank analyses may take up to ~45s server-side (provider refresh + model); stay below the 60s function limit.
+  const timeout = setTimeout(() => controller.abort(), 55_000);
 
   try {
     const response = await fetch('/api/dante', {
@@ -168,6 +169,8 @@ export async function callDanteAI(
       if (response.status === 401 || response.status === 403) {
         throw new Error(payload?.message || 'Acesso ao Dante não autorizado.');
       }
+      // A rate limit is temporary and specific: say so instead of a generic fallback built from manual data.
+      if (response.status === 429) return `⏳ ${payload?.message || 'Limite temporário da IA. Tente novamente em 1 minuto.'}`;
       console.warn('[Dante] API indisponível:', payload?.message || response.statusText);
       return getSmartLocalFallback(context, mode);
     }
