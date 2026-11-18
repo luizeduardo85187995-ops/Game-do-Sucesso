@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { assertOwner, fetchPersonalSnapshot, monthRange, OpenFinanceError, readPersonalConfig } from './_lib/pluggyPersonal.js';
+import { assertOwner, fetchPersonalSnapshot, monthRange, OpenFinanceError, readPersonalConfig, snapshotFingerprint } from './_lib/pluggyPersonal.js';
 
 const CACHE_MS = 15 * 60 * 1000;
 const COOLDOWN_MS = 60 * 1000;
@@ -25,7 +24,7 @@ async function handle(request: Request, refresh: boolean): Promise<Response> {
     const month = url.searchParams.get('month') || new Date().toISOString().slice(0, 7);
     monthRange(month);
     // New configuration never reuses another connection's cached financial data.
-    const fingerprint = createHash('sha256').update([config.clientId, ...config.itemIds].join(':')).digest('hex');
+    const fingerprint = snapshotFingerprint(config);
     const ref = adminDb.collection('openFinancePrivate').doc(uid).collection('months').doc(month);
     const saved = (await ref.get()).data();
     const snapshot = saved?.fingerprint === fingerprint ? saved.snapshot ?? null : null;

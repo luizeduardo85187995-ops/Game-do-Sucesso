@@ -1,4 +1,6 @@
 import { adminAuth, adminDb } from './_lib/firebaseAdmin.js';
+import { buildBankAnalysis } from './_lib/bankAnalysis.js';
+import { loadOwnerBankData } from './_lib/bankStore.js';
 
 const DEFAULT_MODEL = 'qwen/qwen3.8-27b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -367,7 +369,7 @@ function buildFinancialSnapshot(context: FinanceContextData, userMessage: string
   const incomeCount = transactions.filter((t) => t.type === 'income').length;
 
   return `
-RAIO-X FINANCEIRO DO USUÁRIO — calculado pelo aplicativo sobre todos os dados enviados
+RAIO-X DO CONTROLE MANUAL DO APP — lançamentos digitados pelo usuário, DESVINCULADOS do banco
 Data de referência: ${todayISO}
 
 VISÃO GERAL
@@ -422,12 +424,38 @@ ${investments || '- Nenhum investimento cadastrado.'}
 PROVENTOS FUTUROS
 ${upcomingDividends || '- Nenhum provento futuro relevante cadastrado.'}
 
-LANÇAMENTOS MAIS RECENTES E/OU RELEVANTES PARA A PERGUNTA
+LANÇAMENTOS MANUAIS MAIS RECENTES E/OU RELEVANTES PARA A PERGUNTA
 ${relevantTransactions || '- Nenhum lançamento relevante encontrado.'}
 `.trim();
 }
 
-function buildSystemPrompt(context: FinanceContextData, userMessage: string, mode: DanteMode): string {
+function buildBankSection(bankAnalysis: string): string {
+  if (!bankAnalysis) return '';
+  return `
+
+EXTRATO BANCÁRIO REAL (Open Finance via Meu Pluggy) — FONTE DA VERDADE DAS CONTAS CONECTADAS
+- Estes dados vêm do banco e estão VINCULADOS às contas. Os lançamentos manuais do app são um registro paralelo, DESVINCULADO.
+- Para saldo, entradas e saídas reais das contas conectadas, use SEMPRE o extrato bancário.
+- Nunca some banco + manual para calcular gasto. Se um lançamento manual parecer o mesmo do banco (mesmo valor, data próxima), trate como o mesmo movimento e diga isso.
+- Movimentações do tipo "internal" (entre contas do titular, pagamento de fatura, aplicação/resgate) NÃO são receita nem despesa.
+- O usuário não pode alterar valor nem data do banco; só categoria e nota, em Lançamentos → aba "Banco". Ao sugerir categoria, diga exatamente qual e onde salvar.
+
+ANÁLISE FINANCEIRA PROFUNDA — quando pedirem análise do extrato, do banco, dos Pix ou "onde está indo meu dinheiro":
+1. Fluxo: entradas x saídas reais por mês, resultado e tendência. Diga se a pessoa gasta mais do que ganha.
+2. Para onde o dinheiro vai: categorias, destinatários de Pix, gastos recorrentes (assinaturas/contas fixas), efeito formiga, parcelamentos que já comprometem meses futuros. Juros, tarifas, apostas e empréstimos são sinais de alerta: destaque com valor.
+3. INTERROGUE os Pix: escolha de 3 a 5 Pix sem explicação mais relevantes (maior valor ou destinatário recorrente) e PERGUNTE o que foram, com data, valor e destinatário. Ex.: "O Pix de R$ 350,00 para Fulano em 05/11 foi o quê? Aluguel, empréstimo, família, compra?". Uma pergunta objetiva por item.
+4. Quando o usuário responder, reclassifique na análise, recalcule mentalmente o impacto citando os números e recomende a categoria para salvar.
+5. Questione incoerências: Pix de ida e volta com a mesma pessoa (empréstimo informal?), muitos Pix pequenos para o mesmo destinatário, saídas maiores que entradas, gasto recorrente que parece assinatura esquecida.
+6. Nunca chame algo de suspeito ou fraude sem evidência: pergunte.
+7. Feche com um diagnóstico curto e no máximo 3 ações com valor ou limite mensurável.
+Numa análise profunda você pode usar até ~450 palavras.
+
+<EXTRATO_BANCARIO>
+${bankAnalysis}
+</EXTRATO_BANCARIO>`;
+}
+
+function buildSystemPrompt(context: FinanceContextData, userMessage: string, mode: DanteMode, bankAnalysis = ''): string {
   const snapshot = buildFinancialSnapshot(context, userMessage);
 
   const personality = mode === 'vira_homem'
@@ -495,7 +523,7 @@ Você receberá as últimas mensagens da conversa. Use compromissos e metas comb
 
 <RAIO_X_FINANCEIRO_DO_APP>
 ${snapshot}
-</RAIO_X_FINANCEIRO_DO_APP>`;
+</RAIO_X_FINANCEIRO_DO_APP>${buildBankSection(bankAnalysis)}`;
 }
 
 async function authorize(request: Request) {
@@ -575,12 +603,21 @@ export async function POST(request: Request) {
     .map((m: any) => ({ role: m.role, content: safeText(m.content, 4500) }));
 
   const context = sanitizeContext(body?.context);
-  const systemPrompt = buildSystemPrompt(context, userMessage, mode);
+  // Bank data is read server-side for the configured owner only; never trusted from the browser payload.
+  let bankAnalysis = '';
+  try {
+    const bank = await loadOwnerBankData(adminDb, access.uid);
+    if (bank) bankAnalysis = buildBankAnalysis(bank.snapshots, bank.annotations, bank.missingMonths);
+  } catch (error: unknown) {
+    console.warn('[Dante] extrato bancário indisponível', error instanceof Error ? error.name : 'erro');
+    bankAnalysis = 'Extrato bancário indisponível nesta consulta. Não tire conclusões sobre as contas conectadas.';
+  }
+  const systemPrompt = buildSystemPrompt(context, userMessage, mode, bankAnalysis);
   const model = (process.env.GROQ_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 
-  const deepQuestion = /(analise|por que|porque|estrateg|planej|compar|onde estou errando|habito|hábito|evolu|tendenc|tendênc)/i.test(userMessage);
+  const deepQuestion = /(analis|por que|porque|estrateg|planej|compar|onde estou errando|habito|hábito|evolu|tendenc|tendênc|extrato|pix|banco|nubank)/i.test(userMessage);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const timeout = setTimeout(() => controller.abort(), deepQuestion ? 40_000 : 20_000);
   const startedAt = Date.now();
 
   try {
@@ -599,7 +636,7 @@ export async function POST(request: Request) {
         ],
         temperature: mode === 'vira_homem' ? 0.68 : 0.52,
         top_p: 0.86,
-        max_completion_tokens: 900,
+        max_completion_tokens: deepQuestion && bankAnalysis ? 1600 : 900,
         reasoning_effort: deepQuestion ? 'medium' : 'low',
       }),
       signal: controller.signal,
