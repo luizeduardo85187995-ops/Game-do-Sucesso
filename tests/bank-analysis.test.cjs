@@ -74,7 +74,7 @@ test('raio-X: totais corretos, Pix por destinatário, perguntas só do que falta
   assert.match(text, /Moradia: R\$\s?350,00/);
   assert.match(text, /parcela 2\/10 de R\$\s?100,00 \| restam 8 \(R\$\s?800,00\)/);
   assert.match(text, /Meses sem extrato consultado: 2026-09/);
-  const unexplained = text.split('PIX ENVIADOS SEM EXPLICAÇÃO')[1].split('MOVIMENTAÇÕES RECENTES')[0];
+  const unexplained = text.split('PIX ENVIADOS SEM EXPLICAÇÃO')[1].split('\n\n')[0];
   assert(!unexplained.includes('João'), 'Pix já explicado pelo usuário não é perguntado de novo');
   assert(unexplained.includes('Maria'));
   assert(!text.includes('</EXTRATO_BANCARIO>'), 'texto do banco não pode fechar o bloco de dados');
@@ -115,5 +115,8 @@ test('raio-X respeita o orçamento de tamanho mesmo com extrato grande', async (
   assert(summary.length < full.length, `summary=${summary.length}`);
   assert.match(full, /RESUMO MENSAL/); assert.match(summary, /RESUMO MENSAL/);
   assert.match(full, /movimentações não listadas, já incluídas nos totais/);
+  // Priority sections survive the budget whole, in order.
+  assert(full.indexOf('PIX ENVIADOS SEM EXPLICAÇÃO') > 0 && full.indexOf('PIX ENVIADOS SEM EXPLICAÇÃO') < full.indexOf('DESPESAS POR CATEGORIA'));
+  assert.match(summary, /PIX ENVIADOS SEM EXPLICAÇÃO/);
   console.log(`# tamanhos: full=${full.length} chars, summary=${summary.length} chars`);
 });
