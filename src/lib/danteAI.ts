@@ -171,6 +171,7 @@ export async function callDanteAI(
       }
       // A rate limit is temporary and specific: say so instead of a generic fallback built from manual data.
       if (response.status === 429) return `⏳ ${payload?.message || 'Limite temporário da IA. Tente novamente em 1 minuto.'}`;
+      if (response.status === 502 && typeof payload?.message === 'string' && payload.message.includes('longa demais')) return `⚠️ ${payload.message}`;
       console.warn('[Dante] API indisponível:', payload?.message || response.statusText);
       return getSmartLocalFallback(context, mode);
     }
