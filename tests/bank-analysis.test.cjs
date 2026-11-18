@@ -105,3 +105,15 @@ test('bankStore: só o titular, cache da configuração atual e notas em lista',
   assert.deepEqual(out.missingMonths, [previous]);
   assert.deepEqual(Object.keys(out.annotations), ['acc-bank:p1']);
 });
+
+test('raio-X respeita o orçamento de tamanho mesmo com extrato grande', async () => {
+  const a = await compile('api/_lib/bankAnalysis.ts');
+  const many = Array.from({ length: 400 }, (_, i) => tx(`t${i}`, i % 3 ? 'acc-bank' : 'acc-card', `2026-${String(9 + (i % 3)).padStart(2, '0')}-${String(1 + (i % 28)).padStart(2, '0')}`, i % 5 ? -(10 + i) : 50 + i, i % 5 ? 'DEBIT' : 'CREDIT', { operation: 'PIX', counterparty: `Pessoa com nome bem comprido número ${i % 40}`, providerCategory: 'Transfers' }));
+  const full = a.buildBankAnalysis([snapshot('2026-11', many)], {}, [], 'full');
+  const summary = a.buildBankAnalysis([snapshot('2026-11', many)], {}, [], 'summary');
+  assert(full.length <= a.MAX_ANALYSIS_CHARS, `full=${full.length}`);
+  assert(summary.length < full.length, `summary=${summary.length}`);
+  assert.match(full, /RESUMO MENSAL/); assert.match(summary, /RESUMO MENSAL/);
+  assert.match(full, /movimentações não listadas, já incluídas nos totais/);
+  console.log(`# tamanhos: full=${full.length} chars, summary=${summary.length} chars`);
+});
