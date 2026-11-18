@@ -31,6 +31,7 @@ import {
 import { useAuth } from './AuthContext';
 import { db, logOut } from '../lib/firebase';
 import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
+import type { BankTxAnnotation } from '../types/openFinance';
 
 export interface FinanceMetrics {
   balance: number;
@@ -67,6 +68,9 @@ interface FinanceContextValue {
   activeGoalId: string | null;
   setActiveGoalId: (id: string | null) => void;
   metrics: FinanceMetrics;
+  /** Categoria/nota do usuário para movimentações do banco, por chave `${accountId}:${txId}`. */
+  bankTxAnnotations: Record<string, BankTxAnnotation>;
+  annotateBankTransaction: (key: string, changes: { category?: string | null; note?: string | null }) => void;
 
   // Cloud & Data Persistence
   cloudSyncStatus: 'synced' | 'syncing' | 'saved_locally';
@@ -145,6 +149,27 @@ const INITIAL_B3_INTEGRATION: B3IntegrationState = {
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
+type StoredAnnotation = BankTxAnnotation & { key: string };
+
+function annotationsToList(map: Record<string, BankTxAnnotation>): StoredAnnotation[] {
+  return Object.entries(map).map(([key, value]) => ({ key, ...value }));
+}
+
+function annotationsFromStored(raw: unknown): Record<string, BankTxAnnotation> {
+  const out: Record<string, BankTxAnnotation> = {};
+  const entries: Array<[string, unknown]> = Array.isArray(raw)
+    ? raw.filter((e) => e && typeof e.key === 'string').map((e) => [e.key, e])
+    : raw && typeof raw === 'object' ? Object.entries(raw as Record<string, unknown>) : [];
+  for (const [key, value] of entries) {
+    if (!value || typeof value !== 'object') continue;
+    const v = value as Record<string, unknown>;
+    const category = typeof v.category === 'string' && v.category ? v.category : undefined;
+    const note = typeof v.note === 'string' && v.note ? v.note : undefined;
+    if (category || note) out[key] = { ...(category ? { category } : {}), ...(note ? { note } : {}), updatedAt: typeof v.updatedAt === 'string' ? v.updatedAt : '' };
+  }
+  return out;
+}
+
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [loaded, setLoaded] = useState(false);
@@ -157,6 +182,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [incomeCategories, setIncomeCategories] = useState<string[]>(DEFAULT_INCOME_CATEGORIES);
   const [expenseCategories, setExpenseCategories] = useState<string[]>(DEFAULT_EXPENSE_CATEGORIES);
   const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
+  const [bankTxAnnotations, setBankTxAnnotations] = useState<Record<string, BankTxAnnotation>>({});
   const [goals, setGoalsState] = useState<Goals>({ monthly: 0, reserve: 0, passiveIncome: 0, investedPatrimony: 0 });
   const [base, setBaseState] = useState<BaseSettings>({ startingBalance: 0, fixedIncome: 0 });
   const [investmentFocus, setInvestmentFocus] = useState<InvestmentFocus>('income');
@@ -186,6 +212,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setIncomeCategories(DEFAULT_INCOME_CATEGORIES);
     setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
     setCategoryIcons({});
+    setBankTxAnnotations({});
     setGoalsState({ monthly: 0, reserve: 0, passiveIncome: 0, investedPatrimony: 0 });
     setBaseState({ startingBalance: 0, fixedIncome: 0 });
     setInvestmentFocus('income');
@@ -209,6 +236,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (Array.isArray(parsed.incomeCategories) && parsed.incomeCategories.length > 0) setIncomeCategories(parsed.incomeCategories);
     if (Array.isArray(parsed.expenseCategories) && parsed.expenseCategories.length > 0) setExpenseCategories(parsed.expenseCategories);
     if (parsed.categoryIcons && typeof parsed.categoryIcons === 'object') setCategoryIcons(parsed.categoryIcons);
+    if (parsed.bankTxAnnotations) setBankTxAnnotations(annotationsFromStored(parsed.bankTxAnnotations));
     if (parsed.goals) setGoalsState(parsed.goals);
     if (parsed.base) setBaseState(parsed.base);
     if (parsed.investmentFocus) setInvestmentFocus(parsed.investmentFocus);
@@ -309,6 +337,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       incomeCategories,
       expenseCategories,
       categoryIcons,
+      // Stored as a list: setDoc(merge) deep-merges maps, so a removed key would never be deleted remotely.
+      bankTxAnnotations: annotationsToList(bankTxAnnotations),
       goals,
       base,
       investmentFocus,
@@ -361,6 +391,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     incomeCategories,
     expenseCategories,
     categoryIcons,
+    bankTxAnnotations,
     goals,
     base,
     investmentFocus,
@@ -383,6 +414,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         incomeCategories,
         expenseCategories,
         categoryIcons,
+        bankTxAnnotations: annotationsToList(bankTxAnnotations),
         goals,
         base,
         investmentFocus,
@@ -1016,6 +1048,20 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const annotateBankTransaction = (key: string, changes: { category?: string | null; note?: string | null }): void => {
+    if (!/^[\w-]{1,80}:[\w-]{1,80}$/.test(key)) return;
+    setBankTxAnnotations((prev) => {
+      const current = prev[key] || { updatedAt: '' };
+      const category = 'category' in changes ? (changes.category?.trim().slice(0, 60) || undefined) : current.category;
+      const note = 'note' in changes ? (changes.note?.trim().slice(0, 200) || undefined) : current.note;
+      const next = { ...prev };
+      // Firestore rejects undefined fields; drop empty annotations entirely.
+      if (!category && !note) delete next[key];
+      else next[key] = { ...(category ? { category } : {}), ...(note ? { note } : {}), updatedAt: new Date().toISOString() };
+      return next;
+    });
+  };
+
   return (
     <FinanceContext.Provider
       value={{
@@ -1033,6 +1079,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         activeGoalId,
         setActiveGoalId,
         metrics,
+        bankTxAnnotations,
+        annotateBankTransaction,
         cloudSyncStatus,
         lastCloudSyncAt,
         triggerCloudSync,
