@@ -1,4 +1,5 @@
 import RepeatExpensesModal from './RepeatExpensesModal';
+import BankTransactionsTab from './BankTransactionsTab';
 import { dateInMonth } from '../../utils/repeatExpenses';
 import React, { useState } from 'react';
 import {
@@ -43,6 +44,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
     setCategoryIcon,
   } = useFinance();
 
+  const [source, setSource] = useState<'manual' | 'bank'>('manual');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
   const [periodMode, setPeriodMode] = useState<'month' | 'range' | 'all'>('month');
@@ -79,6 +81,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
   const [formBankId, setFormBankId] = useState('');
 
   const openNewModal = (initialType: TransactionType = 'expense') => {
+    setSource('manual');
     setEditingTx(null);
     setFormType(initialType);
     setFormAmount('');
@@ -204,7 +207,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
-            onClick={() => setShowNotificationImporter(true)}
+            onClick={() => { setSource('manual'); setShowNotificationImporter(true); }}
             className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold hover:bg-purple-500/30 transition-all flex items-center justify-center gap-1.5"
             title="Importar notificação de Pix ou compra de banco"
           >
@@ -212,7 +215,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
             <span>Colar Pix / Notificação</span>
           </button>
 
-          <button onClick={() => { setRepeatNotice(''); setRepeatDialog({}); }} className="px-3 py-2.5 rounded-xl border border-cyan-400/40 text-cyan-300 text-xs font-bold flex items-center gap-2"><Copy className="w-4 h-4" />Repetir despesas</button>
+          <button onClick={() => { setSource('manual'); setRepeatNotice(''); setRepeatDialog({}); }} className="px-3 py-2.5 rounded-xl border border-cyan-400/40 text-cyan-300 text-xs font-bold flex items-center gap-2"><Copy className="w-4 h-4" />Repetir despesas</button>
           <button
             onClick={() => openNewModal('expense')}
             className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-400/20"
@@ -223,6 +226,15 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
         </div>
       </div>
 
+      <div role="tablist" aria-label="Origem dos lançamentos" className="flex flex-wrap items-center gap-2">
+        <button role="tab" aria-selected={source === 'manual'} onClick={() => setSource('manual')} className={`px-4 py-2 rounded-xl text-xs font-black border ${source === 'manual' ? 'bg-cyan-400 text-slate-950 border-cyan-300' : 'border-white/10 text-slate-300'}`}>✍️ Manuais (desvinculados)</button>
+        <button role="tab" aria-selected={source === 'bank'} onClick={() => setSource('bank')} className={`px-4 py-2 rounded-xl text-xs font-black border ${source === 'bank' ? 'bg-cyan-400 text-slate-950 border-cyan-300' : 'border-white/10 text-slate-300'}`}>🏦 Banco (vinculado)</button>
+        {source === 'bank' && <label className="ml-auto text-xs text-slate-300 flex items-center gap-2">Mês
+          <input aria-label="Mês do extrato do banco" type="month" value={selectedMonth} onChange={event => changeMonth(event.target.value)} className="bg-slate-800 text-white border border-slate-600 rounded-lg p-2" />
+        </label>}
+      </div>
+
+      {source === 'bank' ? <BankTransactionsTab month={selectedMonth} /> : <>
       {repeatNotice && <p role="status" className="text-sm text-emerald-300">{repeatNotice}</p>}
       <section aria-label="Período dos lançamentos" className="cyber-card rounded-2xl p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -789,6 +801,7 @@ export default function TransactionsScreen({}: TransactionsScreenProps) {
           </div>
         </div>
       )}
+      </>}
     </div>
   );
 }

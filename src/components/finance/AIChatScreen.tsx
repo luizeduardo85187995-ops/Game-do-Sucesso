@@ -58,6 +58,19 @@ interface Message {
   };
 }
 
+/**
+ * True when the user is talking about something that already exists in the bank statement (e.g. answering
+ * Dante's question about a Pix). Auto-launch is then disabled to avoid double counting.
+ */
+function isAboutBankMovement(text: string, history: Message[]): boolean {
+  const norm = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/\b(pix|extrato|nubank|banco|transferencia|ted|fatura)\b/.test(norm)) return true;
+  // An explicit command ("lança 150 de internet") is still honoured right after a bank question.
+  if (/\b(lanca|lancar|lance|anota|anote|cadastra|cadastre|registra|registre)\b/.test(norm)) return false;
+  const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant');
+  return !!lastAssistant && /pix/i.test(lastAssistant.content) && lastAssistant.content.includes('?');
+}
+
 export default function AIChatScreen() {
   const { isPro } = useSubscription();
   const { user } = useAuth();
@@ -106,8 +119,9 @@ export default function AIChatScreen() {
   // Preview do comando digitado ao vivo para feedback instantâneo
   const livePreview = useMemo(() => {
     if (!input.trim() || input.length < 3) return null;
+    if (isAboutBankMovement(input, messages)) return null;
     return extractTransactionIntent(input, expenseCategories, incomeCategories, bankAccounts);
-  }, [input, expenseCategories, incomeCategories, bankAccounts]);
+  }, [input, expenseCategories, incomeCategories, bankAccounts, messages]);
 
   const buildWelcomeMessage = (): Message => {
     const committedFuture = metrics.nextMonthExpenses || metrics.futureExpenses || 0;
@@ -235,7 +249,8 @@ export default function AIChatScreen() {
     let systemInjection = '';
 
     // A. Detecção de Lançamento Automático
-    const detectedTx = extractTransactionIntent(
+    // Explaining a bank movement must never create a duplicate manual entry.
+    const detectedTx = isAboutBankMovement(promptToSend, messages) ? null : extractTransactionIntent(
       promptToSend,
       expenseCategories,
       incomeCategories,
@@ -386,6 +401,14 @@ export default function AIChatScreen() {
   };
 
   const SUGGESTIONS = [
+    {
+      label: '🏦 Análise profunda do extrato',
+      query: 'Faça uma análise financeira profunda do meu extrato bancário: entradas x saídas reais, para onde está indo meu dinheiro, Pix, gastos recorrentes, parcelamentos e sinais de alerta. Depois me pergunte sobre os Pix que você não entendeu.',
+    },
+    {
+      label: '❓ Me pergunte sobre meus Pix',
+      query: 'Liste os Pix que eu enviei e que ainda não têm explicação, e me pergunte o que foi cada um.',
+    },
     {
       label: '⚡ Lançar 150 de Internet',
       query: 'Lança 150 de internet pra mim dia 10',
