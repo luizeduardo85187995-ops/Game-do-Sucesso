@@ -192,9 +192,25 @@ export async function callDanteAI(
   }
 }
 
+/** Local fallbacks and provider-limit notices are UI messages, not Dante's voice: never feed them back to the model. */
+const NON_MODEL_REPLY = /^(O motor do Dante está temporariamente|O Dante está temporariamente sem conexão|⏳|⚠️)/;
+
+export function isNonModelReply(content: string): boolean {
+  return NON_MODEL_REPLY.test(content.trim());
+}
+
 export function buildHistory(rawMessages: { role: string; content: string }[]): ChatMessage[] {
-  return rawMessages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
+  const cleaned: { role: string; content: string }[] = [];
+  for (const m of rawMessages) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    // Drop a failed exchange entirely: the fallback reply and the user turn that produced it.
+    if (m.role === 'assistant' && isNonModelReply(m.content)) {
+      if (cleaned.length && cleaned[cleaned.length - 1].role === 'user') cleaned.pop();
+      continue;
+    }
+    cleaned.push(m);
+  }
+  return cleaned
     .slice(-12)
     .map((m) => ({
       role: m.role as 'user' | 'assistant',
