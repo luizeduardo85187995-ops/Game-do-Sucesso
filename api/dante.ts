@@ -437,7 +437,7 @@ function buildBankSection(bankAnalysis: string): string {
 
 EXTRATO BANCÁRIO REAL (Open Finance) — FONTE DA VERDADE DAS CONTAS CONECTADAS
 - Banco = vinculado; lançamentos manuais = registro paralelo DESVINCULADO. Para saldo e fluxo real, use o banco. Nunca some banco + manual; se um manual parecer o mesmo movimento do banco (valor igual, data próxima), diga isso.
-- Tipo "internal" (entre contas do titular, fatura, aplicação/resgate) não é receita nem despesa.
+- Tipo "internal" (entre contas do titular, fatura, aplicação/resgate) não é receita nem despesa. Entrada alta com "guardado/enviado a investimentos" alto significa que o dinheiro entrou e foi aplicado: isso é poupança, não erro de dado.
 - Valor e data do banco não mudam; categoria e nota sim, em Lançamentos → aba "Banco". Ao sugerir categoria, diga qual e onde.
 ANÁLISE PROFUNDA (quando pedirem análise do extrato, Pix ou para onde vai o dinheiro):
 1. Fluxo mensal real e tendência; diga se gasta mais do que ganha.
