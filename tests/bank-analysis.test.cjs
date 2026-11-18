@@ -120,3 +120,17 @@ test('raio-X respeita o orçamento de tamanho mesmo com extrato grande', async (
   assert.match(summary, /PIX ENVIADOS SEM EXPLICAÇÃO/);
   console.log(`# tamanhos: full=${full.length} chars, summary=${summary.length} chars`);
 });
+
+test('histórico do Dante descarta respostas de erro e a pergunta que as gerou', async () => {
+  const lib = await compile('src/lib/danteAI.ts', [{ name: 'fb', setup(b) {
+    b.onResolve({ filter: /firebase$/ }, () => ({ path: 'fb', namespace: 'fake' }));
+    b.onLoad({ filter: /.*/, namespace: 'fake' }, () => ({ contents: 'export const auth={currentUser:null};', loader: 'js' }));
+  } }]);
+  const history = lib.buildHistory([
+    { role: 'user', content: 'oi' }, { role: 'assistant', content: 'Olá!' },
+    { role: 'user', content: 'analise meu extrato' }, { role: 'assistant', content: 'O motor do Dante está temporariamente indisponível. Pelos dados...' },
+    { role: 'user', content: 'de novo' }, { role: 'assistant', content: '⏳ O plano gratuito da IA aceita uma análise grande por minuto.' },
+    { role: 'user', content: 'e agora?' },
+  ]);
+  assert.deepEqual(history.map(m => m.content), ['oi', 'Olá!', 'e agora?']);
+});
