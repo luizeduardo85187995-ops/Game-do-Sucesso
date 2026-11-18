@@ -632,7 +632,7 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(GROQ_URL, {
+    const callModel = (reasoningEffort: 'none' | 'low') => fetch(GROQ_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -648,11 +648,18 @@ export async function POST(request: Request) {
         temperature: mode === 'vira_homem' ? 0.68 : 0.52,
         top_p: 0.86,
         max_completion_tokens: maxOutputTokens,
-        // Free tier counts reasoning in the 1k output-tokens/min cap: keep thinking short so the answer fits.
-        reasoning_effort: 'low',
+        reasoning_effort: reasoningEffort,
       }),
       signal: controller.signal,
     });
+
+    // Reasoning tokens count toward the free tier's 1k output-tokens/min cap. The bank numbers arrive
+    // precomputed, so deep analyses run without hidden reasoning; models that reject 'none' retry with 'low'.
+    let response = await callModel(deepQuestion ? 'none' : 'low');
+    if (response.status === 400 && deepQuestion) {
+      console.warn('[Dante/Groq] reasoning_effort=none recusado; tentando low');
+      response = await callModel('low');
+    }
 
     const raw = await response.text();
     let payload: any = {};
