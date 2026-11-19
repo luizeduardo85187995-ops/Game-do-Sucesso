@@ -50,6 +50,11 @@ function translateProvider(category: string | null | undefined): string | null {
   return PROVIDER_CATEGORY_PT[category.toLowerCase().trim()] ?? category;
 }
 
+/** MeuPluggy is a proxy connector: the real bank is the account's own name (e.g. "Nu Pagamentos S.A."). */
+export function institutionOf(account: Pick<ConnectedAccount, 'institution' | 'name'>): string {
+  return /meu\s*pluggy/i.test(account.institution) && account.name ? account.name : account.institution;
+}
+
 export function classify(
   tx: BankStatementEntry,
   account: Pick<ConnectedAccount, 'type' | 'name' | 'institution'> | undefined,
@@ -74,7 +79,7 @@ export function classify(
     category,
     categorySource: userCategory ? 'usuario' : provider ? 'banco' : 'nenhuma',
     note: annotation?.note?.trim() || null,
-    accountLabel: account ? `${account.institution} ${account.type === 'CREDIT' ? 'cartão' : 'conta'}` : 'Conta',
+    accountLabel: account ? `${promptSafe(institutionOf(account), 30)} ${account.type === 'CREDIT' ? 'cartão' : 'conta'}` : 'Conta',
     accountType,
   };
 }
@@ -146,7 +151,7 @@ export function buildBankAnalysis(
   const sections: string[][] = [];
 
   const accountsSection = ['CONTAS CONECTADAS (saldo da última coleta do banco)'];
-  for (const a of accounts) accountsSection.push(`- ${promptSafe(a.institution, 40)} ${a.type === 'CREDIT' ? 'cartão (fatura/uso)' : 'conta'}: ${brl(a.balance)}${a.updatedAt ? ` | coleta ${a.updatedAt.slice(0, 10)}` : ''}`);
+  for (const a of accounts) accountsSection.push(`- ${promptSafe(institutionOf(a), 40)} ${a.type === 'CREDIT' ? 'cartão (fatura/uso)' : 'conta'}: ${brl(a.balance)}${a.updatedAt ? ` | coleta ${a.updatedAt.slice(0, 10)}` : ''}`);
   if (missingMonths.length) accountsSection.push(`- Meses sem extrato consultado: ${missingMonths.join(', ')} (não conclua nada sobre eles).`);
   sections.push(accountsSection);
 
