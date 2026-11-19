@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   ReceiptText,
@@ -36,20 +36,22 @@ import ProModal from './components/subscription/ProModal';
 import LegalModal from './components/legal/LegalModal';
 import { formatBRL } from './utils/format';
 import OverviewScreen from './components/finance/OverviewScreen';
-import TransactionsScreen from './components/finance/TransactionsScreen';
-import BanksScreen from './components/finance/BanksScreen';
-import InvestmentsScreen from './components/finance/InvestmentsScreen';
-import PlanningScreen from './components/finance/PlanningScreen';
-import ReportsScreen from './components/finance/ReportsScreen';
-import GameTabScreen from './components/finance/GameTabScreen';
-import AIChatScreen from './components/finance/AIChatScreen';
-import GoogleAuthScreen from './components/finance/GoogleAuthScreen';
-import SettingsScreen from './components/finance/SettingsScreen';
+// Screens load on demand: the first visit only downloads the overview, not all 10 tabs.
+const TransactionsScreen = lazy(() => import('./components/finance/TransactionsScreen'));
+const BanksScreen = lazy(() => import('./components/finance/BanksScreen'));
+const InvestmentsScreen = lazy(() => import('./components/finance/InvestmentsScreen'));
+const PlanningScreen = lazy(() => import('./components/finance/PlanningScreen'));
+const ReportsScreen = lazy(() => import('./components/finance/ReportsScreen'));
+const GameTabScreen = lazy(() => import('./components/finance/GameTabScreen'));
+const AIChatScreen = lazy(() => import('./components/finance/AIChatScreen'));
+const GoogleAuthScreen = lazy(() => import('./components/finance/GoogleAuthScreen'));
+const SettingsScreen = lazy(() => import('./components/finance/SettingsScreen'));
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GoogleLogo } from './components/icons/GoogleLogo';
 import { TabId } from './types/navigation';
 import GuidedTour from './components/tutorial/GuidedTour';
-import PublicSite from './public/PublicSite';
+// The public editorial site and the private app never ship in each other's initial bundle.
+const PublicSite = lazy(() => import('./public/PublicSite'));
 
 // Clean, high-value primary financial modules (Settings and Google account sit dedicated on top right header)
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }>; highlight?: boolean; badge?: string }[] = [
@@ -62,6 +64,15 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: 'ai', label: 'Dante IA', icon: Bot, badge: 'PRO' },
   { id: 'game', label: 'Jornada da Meta', icon: Compass, highlight: true },
 ];
+
+
+function ScreenLoading() {
+  return (
+    <div role="status" aria-live="polite" className="flex items-center justify-center py-24 text-sm text-slate-400 font-mono">
+      Carregando…
+    </div>
+  );
+}
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -558,6 +569,7 @@ function AppContent() {
 
       {/* Main Content Area */}
       <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        <Suspense fallback={<ScreenLoading />}>
         {activeTab === 'overview' && (
           <OverviewScreen
             onNavigateToGame={handleNavigateToGame}
@@ -593,6 +605,7 @@ function AppContent() {
         )}
 
         {activeTab === 'google' && <GoogleAuthScreen />}
+        </Suspense>
       </main>
 
       {/* Futuristic Cyber Footer */}
@@ -677,7 +690,9 @@ export default function App() {
   if (!isPrivateAppRoute) {
     return (
       <SettingsProvider>
-        <PublicSite />
+        <Suspense fallback={<ScreenLoading />}>
+          <PublicSite />
+        </Suspense>
       </SettingsProvider>
     );
   }
