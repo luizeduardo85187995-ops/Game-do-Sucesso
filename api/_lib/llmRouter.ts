@@ -44,7 +44,7 @@ const SPECS: Record<ProviderId, ProviderSpec> = {
   },
   gemini: {
     label: 'Google Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', keyEnv: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
-    modelEnv: 'GEMINI_MODEL', defaultModel: 'gemini-3.8-flash', /* 2.5 retired (404) in 2026; 3.8 Flash has a free tier */ maxOutEnv: 'GEMINI_MAX_OUTPUT_TOKENS', defaultMaxOut: 2048, reasoning: 'gemini',
+    modelEnv: 'GEMINI_MODEL', defaultModel: 'gemini-3.5-flash-lite', /* free tier; 2.5 retired (404) and 3.8 Flash timed out/503 on free tier in Nov 2026 */ maxOutEnv: 'GEMINI_MAX_OUTPUT_TOKENS', defaultMaxOut: 2048, reasoning: 'gemini',
   },
   cerebras: {
     label: 'Cerebras', url: 'https://api.cerebras.ai/v1/chat/completions', keyEnv: ['CEREBRAS_API_KEY'],
