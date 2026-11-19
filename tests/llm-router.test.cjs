@@ -11,103 +11,129 @@ async function compile(entry, plugins = []) {
   return m.exports;
 }
 
-const ok = (text, extra = {}) => Response.json({ choices: [{ message: { content: text }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }, ...extra });
+const ok = (text) => Response.json({ choices: [{ message: { content: text }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } });
 const err = (status, headers = {}) => new Response(JSON.stringify({ error: { message: 'segredo interno do provedor' } }), { status, headers });
 const req = { messages: [{ role: 'user', content: 'oi' }], temperature: 0.5, deep: false };
-const env = { GROQ_API_KEY: 'gsk-test-secret', GEMINI_API_KEY: 'gem-test-secret', OPENROUTER_API_KEY: 'or-test-secret' };
+const env = { GROQ_API_KEY: 'gsk-test-secret', GEMINI_API_KEY: 'gem-test-secret' };
+const label = (p) => `${p.id}:${p.model}`;
+const modelOf = (init) => JSON.parse(init.body).model;
 
-test('provedores: só os que têm chave, na ordem configurada, com modelo sobrescrevível', async () => {
+test('catálogo: vários modelos por chave, provedores intercalados, sem expor chave', async () => {
   const r = await compile('api/_lib/llmRouter.ts');
-  assert.deepEqual(r.configuredProviders({}).map(p => p.id), []);
-  assert.deepEqual(r.configuredProviders(env).map(p => p.id), ['groq', 'gemini', 'openrouter']);
-  assert.deepEqual(r.configuredProviders({ ...env, LLM_PROVIDER_ORDER: 'gemini, openrouter' }).map(p => p.id), ['gemini', 'openrouter', 'groq']);
-  assert.deepEqual(r.configuredProviders({ GOOGLE_API_KEY: 'x' }).map(p => p.id), ['gemini'], 'GOOGLE_API_KEY também vale para o Gemini');
-  const g = r.configuredProviders({ GEMINI_API_KEY: 'x', GEMINI_MODEL: 'gemini-novo', GEMINI_MAX_OUTPUT_TOKENS: '999999' })[0];
-  assert.equal(g.model, 'gemini-novo'); assert.equal(g.maxOutputTokens, 16384);
+  assert.deepEqual(r.configuredProviders({}), []);
+  assert.deepEqual(r.configuredProviders(env).map(label), [
+    'groq:qwen/qwen3.8-27b', 'gemini:gemini-3.5-flash-lite',
+    'groq:openai/gpt-oss-120b', 'gemini:gemini-3.6-flash',
+    'groq:openai/gpt-oss-20b', 'gemini:gemini-3.1-flash-lite',
+    'gemini:gemini-3.8-flash', 'gemini:gemini-4-hydrogen',
+  ], '8 IAs com 2 chaves');
+  assert.equal(r.configuredProviders({ ...env, LLM_PROVIDER_ORDER: 'gemini' })[0].id, 'gemini');
+  assert.deepEqual(r.configuredProviders({ GEMINI_API_KEY: 'x', GEMINI_MODELS: 'gemini-a, gemini-b' }).map(p => p.model), ['gemini-a', 'gemini-b']);
+  assert.deepEqual(r.configuredProviders({ GEMINI_API_KEY: 'x', GEMINI_MODEL: 'gemini-3.8-flash' }).map(p => p.model).slice(0, 2), ['gemini-3.8-flash', 'gemini-3.5-flash-lite'], 'modelo único antigo vira o primeiro, sem duplicar');
+  assert.deepEqual(r.configuredProviders({ GOOGLE_API_KEY: 'x' })[0].id, 'gemini');
   assert.equal(r.configuredProviders({ GROQ_API_KEY: 'x' })[0].maxOutputTokens, 1000, 'Groq gratuito: no máximo 1000 tokens de saída');
+  assert.equal(r.configuredProviders({ GROQ_API_KEY: 'x', GROQ_MAX_OUTPUT_TOKENS: '999999' })[0].maxOutputTokens, 16384);
   assert(!JSON.stringify(r.describeProviders(r.configuredProviders(env))).includes('secret'), 'status nunca expõe chave');
 });
 
-test('acabou o limite de um, responde o próximo; e o que estourou entra em espera', async () => {
+test('limite de um modelo: pula para o próximo e o que estourou fica em espera', async () => {
   const r = await compile('api/_lib/llmRouter.ts');
   r.resetCooldowns();
-  const providers = r.configuredProviders(env);
+  const chain = r.configuredProviders(env);
   const calls = [];
   const fetcher = async (url, init) => {
-    calls.push({ url, auth: init.headers.Authorization, body: JSON.parse(init.body) });
-    if (url.includes('groq')) return err(429, { 'retry-after': '30' });
-    return ok('resposta do Gemini');
+    calls.push({ model: modelOf(init), auth: init.headers.Authorization });
+    return modelOf(init) === 'qwen/qwen3.8-27b' ? err(429, { 'retry-after': '30' }) : ok(`resposta de ${modelOf(init)}`);
   };
-  const result = await r.chatWithFallback(providers, req, { deadlineMs: Date.now() + 40_000, fetcher });
-  assert.equal(result.text, 'resposta do Gemini');
-  assert.equal(result.provider, 'gemini');
-  assert.deepEqual(result.attempts.map(a => `${a.provider}:${a.outcome}`), ['groq:rate_limited', 'gemini:ok']);
+  const first = await r.chatWithFallback(chain, req, { deadlineMs: Date.now() + 40_000, fetcher });
+  assert.equal(first.model, 'gemini-3.5-flash-lite');
   assert.equal(calls[1].auth, 'Bearer gem-test-secret', 'cada provedor recebe só a própria chave');
-  assert.equal(calls[1].body.model, 'gemini-3.5-flash-lite', 'modelo Gemini atual com plano gratuito');
-  // Second question: Groq is cooling down, so it is skipped without a network call.
   calls.length = 0;
-  const again = await r.chatWithFallback(providers, req, { deadlineMs: Date.now() + 40_000, fetcher });
-  assert.equal(again.provider, 'gemini');
-  assert.equal(calls.length, 1);
-  assert.equal(again.attempts[0].outcome, 'skipped_cooldown');
+  const second = await r.chatWithFallback(chain, req, { deadlineMs: Date.now() + 40_000, fetcher });
+  assert.equal(second.attempts[0].outcome, 'skipped_cooldown');
+  assert.equal(calls.length, 1, 'modelo em espera não gasta chamada');
 });
 
-test('falhas variadas: fora do ar, chave inválida, resposta vazia, modelo sem suporte a reasoning=none', async () => {
+test('Groq e Gemini congestionados: os outros modelos da mesma chave respondem', async () => {
   const r = await compile('api/_lib/llmRouter.ts');
   r.resetCooldowns();
-  const providers = r.configuredProviders({ ...env, CEREBRAS_API_KEY: 'c' });
-  const seen = [];
+  const fetcher = async (url, init) => {
+    const m = modelOf(init);
+    if (m === 'qwen/qwen3.8-27b') return err(429);
+    if (m === 'gemini-3.5-flash-lite') return err(503);
+    if (m === 'openai/gpt-oss-120b') return err(429);
+    if (m === 'gemini-3.6-flash') return err(503);
+    return ok(`resposta de ${m}`);
+  };
+  const res = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, retryDelayMs: 1, fetcher });
+  assert.equal(res.model, 'openai/gpt-oss-20b');
+  assert.deepEqual(res.attempts.map(a => a.outcome), ['rate_limited', 'server_error', 'server_error', 'rate_limited', 'server_error', 'ok'], 'só um retry de 503 por pergunta');
+});
+
+test('raciocínio: qwen/gemini sem raciocínio na análise profunda; gpt-oss sempre low', async () => {
+  const r = await compile('api/_lib/llmRouter.ts');
+  r.resetCooldowns();
+  const sent = [];
   const fetcher = async (url, init) => {
     const body = JSON.parse(init.body);
-    seen.push(`${new URL(url).hostname}:${body.reasoning_effort ?? '-'}`);
-    if (url.includes('groq')) return body.reasoning_effort === 'none' ? err(400) : err(503);
-    if (url.includes('googleapis')) return err(401);
-    if (url.includes('cerebras')) return ok('   ');
-    return ok('resposta do OpenRouter');
+    sent.push(`${body.model}:${body.reasoning_effort}`);
+    if (body.model === 'qwen/qwen3.8-27b') return body.reasoning_effort === 'none' ? err(400) : err(429);
+    if (body.model.startsWith('gemini')) return err(429);
+    return ok('gpt-oss respondeu');
   };
-  const result = await r.chatWithFallback(providers, { ...req, deep: true }, { deadlineMs: Date.now() + 40_000, retryDelayMs: 1, fetcher });
-  assert.equal(result.provider, 'openrouter');
-  assert.deepEqual(seen, ['api.groq.com:none', 'api.groq.com:low', 'api.groq.com:low', 'generativelanguage.googleapis.com:none', 'api.cerebras.ai:-', 'openrouter.ai:-']);
-  assert.deepEqual(result.attempts.map(a => a.outcome), ['server_error', 'server_error', 'auth', 'empty', 'ok'], '503 tenta de novo uma vez antes de pular');
+  const res = await r.chatWithFallback(r.configuredProviders(env), { ...req, deep: true }, { deadlineMs: Date.now() + 40_000, fetcher });
+  assert.equal(res.model, 'openai/gpt-oss-120b');
+  assert.deepEqual(sent, ['qwen/qwen3.8-27b:none', 'qwen/qwen3.8-27b:low', 'gemini-3.5-flash-lite:none', 'openai/gpt-oss-120b:low']);
 });
 
-test('todas no limite: erro com tempo de espera e sem vazar chave nem mensagem do provedor', async () => {
+test('chave inválida descarta todos os modelos daquele provedor de uma vez', async () => {
   const r = await compile('api/_lib/llmRouter.ts');
   r.resetCooldowns();
-  const providers = r.configuredProviders(env);
-  const fetcher = async (url) => err(url.includes('openrouter') ? 413 : 429, url.includes('gemini') || url.includes('googleapis') ? { 'retry-after': '12' } : {});
-  await assert.rejects(r.chatWithFallback(providers, req, { deadlineMs: Date.now() + 40_000, fetcher }), e => {
+  let geminiCalls = 0;
+  const fetcher = async (url, init) => {
+    if (url.includes('googleapis')) { geminiCalls++; return err(401); }
+    return modelOf(init) === 'openai/gpt-oss-20b' ? ok('Groq 20b') : err(429);
+  };
+  const res = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, fetcher });
+  assert.equal(res.model, 'openai/gpt-oss-20b');
+  assert.equal(geminiCalls, 1);
+  assert.deepEqual(res.attempts.map(a => a.outcome), ['rate_limited', 'auth', 'rate_limited', 'skipped_auth', 'ok']);
+});
+
+test('todas no limite: erro com espera e sem vazar chave nem mensagem do provedor', async () => {
+  const r = await compile('api/_lib/llmRouter.ts');
+  r.resetCooldowns();
+  const fetcher = async (url, init) => err(429, modelOf(init) === 'gemini-4-hydrogen' ? { 'retry-after': '12' } : {});
+  await assert.rejects(r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, fetcher }), e => {
     assert(e instanceof r.AllProvidersFailedError);
     assert.equal(e.retryAfterSeconds, 12);
+    assert.equal(e.attempts.length, 8);
     const dump = JSON.stringify({ message: e.message, attempts: e.attempts });
     assert(!dump.includes('secret') && !dump.includes('segredo'));
     return true;
   });
 });
 
-test('não começa tentativa nova perto do limite de tempo da função', async () => {
+test('tempo: não começa tentativa perto do limite; travou, pula; a última usa o tempo que sobra', async () => {
   const r = await compile('api/_lib/llmRouter.ts');
   r.resetCooldowns();
   let calls = 0;
   await assert.rejects(r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 1000, fetcher: async () => { calls++; return ok('x'); } }));
   assert.equal(calls, 0);
-  // A hanging provider is aborted by the per-attempt timeout and the next one answers.
-  const hang = (url, init) => url.includes('groq')
+  const hang = (url, init) => modelOf(init) === 'qwen/qwen3.8-27b'
     ? new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))))
     : Promise.resolve(ok('Gemini salvou'));
   const res = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, perAttemptTimeoutMs: 50, fetcher: hang });
   assert.equal(res.text, 'Gemini salvou');
   assert.equal(res.attempts[0].outcome, 'timeout');
-  // The last provider is not cut by the per-attempt timeout: it may use the remaining deadline.
-  const slowLast = (url) => url.includes('openrouter')
-    ? new Promise(resolve => setTimeout(() => resolve(ok('lento mas chegou')), 120))
-    : Promise.resolve(err(429));
   r.resetCooldowns();
-  const last = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, perAttemptTimeoutMs: 50, fetcher: slowLast });
+  const only = r.configuredProviders({ GEMINI_API_KEY: 'x', GEMINI_MODELS: 'gemini-a,gemini-b' });
+  const slowLast = (url, init) => modelOf(init) === 'gemini-b' ? new Promise(resolve => setTimeout(() => resolve(ok('lento mas chegou')), 120)) : Promise.resolve(err(429));
+  const last = await r.chatWithFallback(only, req, { deadlineMs: Date.now() + 40_000, perAttemptTimeoutMs: 50, fetcher: slowLast });
   assert.equal(last.text, 'lento mas chegou');
 });
 
-test('Dante usa a cadeia: Groq no limite, Gemini responde e o app recebe o nome do provedor', async () => {
+test('Dante usa o catálogo: com Groq e Gemini no limite, outro modelo responde e o app vê qual', async () => {
   const api = await compile('api/dante.ts', [{ name: 'm', setup(b) {
     b.onResolve({ filter: /firebaseAdmin\.js$/ }, () => ({ path: 'a', namespace: 'f' }));
     b.onResolve({ filter: /bankStore\.js$/ }, () => ({ path: 'bs', namespace: 'f' }));
@@ -117,36 +143,21 @@ test('Dante usa a cadeia: Groq no limite, Gemini responde e o app recebe o nome 
   const previous = { ...process.env };
   const originalFetch = global.fetch;
   try {
-    for (const k of ['GROQ_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'CEREBRAS_API_KEY', 'OPENROUTER_API_KEY', 'MISTRAL_API_KEY', 'LLM_PROVIDER_ORDER']) delete process.env[k];
+    for (const k of Object.keys(process.env)) if (/_API_KEY$|_MODELS?$|LLM_PROVIDER_ORDER/.test(k)) delete process.env[k];
     const call = () => api.POST(new Request('https://t/api/dante', { method: 'POST', headers: { Authorization: 'Bearer t', 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'oi', history: [], context: {} }) }));
     assert.equal((await call()).status, 503, 'sem nenhuma chave: erro claro');
     process.env.GROQ_API_KEY = 'g'; process.env.GEMINI_API_KEY = 'm';
-    global.fetch = async (url) => url.includes('groq') ? err(429) : ok('Olá do Gemini');
+    global.fetch = async (url, init) => ['qwen/qwen3.8-27b', 'gemini-3.5-flash-lite'].includes(modelOf(init)) ? err(429) : ok(`Olá de ${modelOf(init)}`);
     const res = await call();
     const body = await res.json();
     assert.equal(res.status, 200);
-    assert.equal(body.text, 'Olá do Gemini');
-    assert.equal(body.provider, 'Google Gemini');
+    assert.equal(body.text, 'Olá de openai/gpt-oss-120b');
+    assert.equal(body.provider, 'Groq');
     const status = await (await api.GET()).json();
-    assert.deepEqual(status.providers.map(p => p.id), ['groq', 'gemini']);
+    assert.equal(status.providers.length, 8);
   } finally {
     global.fetch = originalFetch;
     for (const k of Object.keys(process.env)) if (!(k in previous)) delete process.env[k];
     Object.assign(process.env, previous);
   }
-});
-
-test('503 passageiro: mesma IA tenta de novo uma vez e responde', async () => {
-  const r = await compile('api/_lib/llmRouter.ts');
-  r.resetCooldowns();
-  let geminiCalls = 0;
-  const fetcher = async (url) => {
-    if (url.includes('groq')) return err(429);
-    if (url.includes('googleapis')) return ++geminiCalls === 1 ? err(503) : ok('Gemini voltou');
-    return ok('não deveria chegar aqui');
-  };
-  const res = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, retryDelayMs: 1, fetcher });
-  assert.equal(res.text, 'Gemini voltou');
-  assert.equal(geminiCalls, 2);
-  assert.deepEqual(res.attempts.map(a => `${a.provider}:${a.outcome}`), ['groq:rate_limited', 'gemini:server_error', 'gemini:ok']);
 });
