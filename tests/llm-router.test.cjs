@@ -65,10 +65,10 @@ test('falhas variadas: fora do ar, chave inválida, resposta vazia, modelo sem s
     if (url.includes('cerebras')) return ok('   ');
     return ok('resposta do OpenRouter');
   };
-  const result = await r.chatWithFallback(providers, { ...req, deep: true }, { deadlineMs: Date.now() + 40_000, fetcher });
+  const result = await r.chatWithFallback(providers, { ...req, deep: true }, { deadlineMs: Date.now() + 40_000, retryDelayMs: 1, fetcher });
   assert.equal(result.provider, 'openrouter');
-  assert.deepEqual(seen, ['api.groq.com:none', 'api.groq.com:low', 'generativelanguage.googleapis.com:none', 'api.cerebras.ai:-', 'openrouter.ai:-']);
-  assert.deepEqual(result.attempts.map(a => a.outcome), ['server_error', 'auth', 'empty', 'ok']);
+  assert.deepEqual(seen, ['api.groq.com:none', 'api.groq.com:low', 'api.groq.com:low', 'generativelanguage.googleapis.com:none', 'api.cerebras.ai:-', 'openrouter.ai:-']);
+  assert.deepEqual(result.attempts.map(a => a.outcome), ['server_error', 'server_error', 'auth', 'empty', 'ok'], '503 tenta de novo uma vez antes de pular');
 });
 
 test('todas no limite: erro com tempo de espera e sem vazar chave nem mensagem do provedor', async () => {
@@ -134,4 +134,19 @@ test('Dante usa a cadeia: Groq no limite, Gemini responde e o app recebe o nome 
     for (const k of Object.keys(process.env)) if (!(k in previous)) delete process.env[k];
     Object.assign(process.env, previous);
   }
+});
+
+test('503 passageiro: mesma IA tenta de novo uma vez e responde', async () => {
+  const r = await compile('api/_lib/llmRouter.ts');
+  r.resetCooldowns();
+  let geminiCalls = 0;
+  const fetcher = async (url) => {
+    if (url.includes('groq')) return err(429);
+    if (url.includes('googleapis')) return ++geminiCalls === 1 ? err(503) : ok('Gemini voltou');
+    return ok('não deveria chegar aqui');
+  };
+  const res = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, retryDelayMs: 1, fetcher });
+  assert.equal(res.text, 'Gemini voltou');
+  assert.equal(geminiCalls, 2);
+  assert.deepEqual(res.attempts.map(a => `${a.provider}:${a.outcome}`), ['groq:rate_limited', 'gemini:server_error', 'gemini:ok']);
 });
