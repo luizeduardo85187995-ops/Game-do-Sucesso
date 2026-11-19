@@ -148,7 +148,7 @@ function retryAfterSeconds(res: Response): number | null {
 export async function chatWithFallback(
   providers: ProviderConfig[],
   req: ChatRequest,
-  options: { deadlineMs: number; perAttemptTimeoutMs?: number; fetcher?: typeof fetch; now?: () => number } ,
+  options: { deadlineMs: number; perAttemptTimeoutMs?: number; retryDelayMs?: number; fetcher?: typeof fetch; now?: () => number },
 ): Promise<RouterResult> {
   const fetcher = options.fetcher ?? fetch;
   const now = options.now ?? Date.now;
@@ -169,7 +169,10 @@ export async function chatWithFallback(
     if (remaining < 3000) break;
 
     // One retry on the same provider only for reasoning-hint rejection (400); everything else moves on.
-    for (const reasoningOff of p.reasoning === 'none' ? [false] : req.deep ? [true, false] : [false]) {
+    const plan: boolean[] = p.reasoning === 'none' ? [false] : req.deep ? [true, false] : [false];
+    let transientRetried = false;
+    for (let step = 0; step < plan.length; step += 1) {
+      const reasoningOff = plan[step];
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), isLast ? options.deadlineMs - now() : Math.min(options.perAttemptTimeoutMs ?? 25_000, options.deadlineMs - now()));
       const t0 = now();
@@ -214,6 +217,13 @@ export async function chatWithFallback(
         : res.status >= 500 ? 'server_error'
         : 'bad_request';
       attempts.push({ provider: p.id, model: p.model, outcome, status: res.status, durationMs: now() - t0 });
+      // 5xx ("overloaded") is usually transient on free tiers: retry the same provider once after a short pause.
+      if (outcome === 'server_error' && !transientRetried && options.deadlineMs - now() > 6000) {
+        transientRetried = true;
+        await new Promise(resolve => setTimeout(resolve, options.retryDelayMs ?? 1500));
+        plan.splice(step + 1, 0, reasoningOff);
+        continue;
+      }
       if (outcome === 'rate_limited') {
         const wait = retryAfterSeconds(res) ?? 60;
         cooldownUntil.set(p.id, now() + wait * 1000);
