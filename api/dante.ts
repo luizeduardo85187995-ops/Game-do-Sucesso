@@ -1,6 +1,7 @@
 import { adminAuth, adminDb } from './_lib/firebaseAdmin.js';
 import { buildBankAnalysis } from './_lib/bankAnalysis.js';
 import { loadOwnerBankData } from './_lib/bankStore.js';
+import { consumeRateLimit, danteLimits, formatWait } from './_lib/rateLimit.js';
 import { AllProvidersFailedError, chatWithFallback, configuredProviders, describeProviders } from './_lib/llmRouter.js';
 
 const DEFAULT_ADMIN_EMAILS = [
@@ -530,11 +531,13 @@ async function authorize(request: Request) {
 
   try {
     const token = authHeader.slice('Bearer '.length).trim();
-    const decoded = await adminAuth.verifyIdToken(token);
+    // checkRevoked: a signed-out or disabled account loses access immediately.
+    const decoded = await adminAuth.verifyIdToken(token, true);
     const email = (decoded.email || '').toLowerCase().trim();
-    const isAdmin = decoded.admin === true || getAdminEmails().includes(email);
+    // An e-mail only proves identity once verified (same rule as subscriptions.ts and firestore.rules).
+    const isAdmin = decoded.admin === true || (decoded.email_verified === true && getAdminEmails().includes(email));
 
-    if (isAdmin) return { ok: true as const, uid: decoded.uid };
+    if (isAdmin) return { ok: true as const, uid: decoded.uid, isAdmin: true };
 
     const snap = await adminDb.collection('subscriptions').doc(decoded.uid).get();
     const data = snap.data() || {};
@@ -546,7 +549,7 @@ async function authorize(request: Request) {
       return { ok: false as const, status: 403, message: 'O Dante é um recurso do plano PRO.' };
     }
 
-    return { ok: true as const, uid: decoded.uid };
+    return { ok: true as const, uid: decoded.uid, isAdmin: false };
   } catch {
     return { ok: false as const, status: 401, message: 'Sessão inválida ou expirada. Entre novamente.' };
   }
@@ -589,6 +592,20 @@ export async function POST(request: Request) {
   const userMessage = safeText(body?.message, 6000);
   if (!userMessage) {
     return Response.json({ success: false, message: 'Mensagem vazia.' }, { status: 400 });
+  }
+
+  // Counted only for valid requests that will reach the AI providers.
+  try {
+    const limit = await consumeRateLimit(adminDb, `dante_${access.uid}`, danteLimits(access.isAdmin));
+    if (!limit.allowed) {
+      return Response.json(
+        { success: false, message: `Você atingiu o limite de perguntas ao Dante. Tente de novo em ${formatWait(limit.retryAfterSeconds)}.`, retryAfter: String(limit.retryAfterSeconds) },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
+      );
+    }
+  } catch (error: unknown) {
+    // Fail closed would lock everyone out on a Firestore hiccup; fail open but log it.
+    console.warn('[Dante] limite de uso indisponível', error instanceof Error ? error.name : 'erro');
   }
 
   const mode: DanteMode = body?.mode === 'vira_homem' ? 'vira_homem' : 'equilibrado';
