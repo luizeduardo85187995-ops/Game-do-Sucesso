@@ -9,6 +9,7 @@
  */
 
 import { isSettled } from '../utils/transactions';
+import { XlsxWriter } from '../utils/xlsxWriter';
 import { Transaction, BankAccount } from '../types/finance';
 import { formatDateBR, formatBRL, todayISO } from '../utils/format';
 
@@ -29,7 +30,8 @@ export async function exportExcelWithCharts(
   expenseCategories: string[],
   incomeCategories: string[]
 ): Promise<void> {
-  const XLSX = await import('xlsx');
+  // exceljs-backed writer with the same small API surface the code below uses (see utils/xlsxWriter).
+  const XLSX = XlsxWriter;
 
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
@@ -241,7 +243,7 @@ export async function exportExcelWithCharts(
 
   // Salva o arquivo no formato Excel nativo
   const fileName = `planilha_financeira_com_graficos_${todayISO()}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  await XLSX.writeFile(wb, fileName);
 }
 
 /**

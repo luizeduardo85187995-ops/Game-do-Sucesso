@@ -1,3 +1,4 @@
+import { readSpreadsheet, SpreadsheetFormatError, type SheetRows } from '../utils/spreadsheetReader';
 import { B3AssetQuote, DividendEvent, DividendType, Investment, InvestmentType } from '../types/finance';
 
 /**
@@ -1152,15 +1153,11 @@ function extractB3TickerFromString(str: string): string | null {
  * Faz a varredura inteligente de planilhas Excel da Área do Investidor B3
  * Reconhece cabeçalhos reais (Produto, Instituição, Conta, Quantidade, Preço de Fechamento, Valor Atualizado)
  */
-function parseB3Workbook(workbook: any): Omit<Investment, 'id'>[] {
-  const XLSX = (window as any).XLSX;
+function parseB3Workbook(sheets: SheetRows[]): Omit<Investment, 'id'>[] {
   const rawList: Omit<Investment, 'id'>[] = [];
 
-  for (const sheetName of workbook.SheetNames) {
-    const worksheet = workbook.Sheets[sheetName];
-    if (!worksheet) continue;
-
-    const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+  for (const sheet of sheets) {
+    const rows: any[] = sheet.rows;
     if (!rows || rows.length === 0) continue;
 
     // 1. Tenta encontrar a linha de cabeçalho da B3
@@ -1439,17 +1436,19 @@ export async function parseB3File(file: File): Promise<{
     }
 
     // 2. Processamento de arquivos Excel (.xlsx, .xls) e CSV
-    const XLSX = await import('xlsx');
-    (window as any).XLSX = XLSX;
+    let sheets: SheetRows[];
+    try {
+      sheets = await readSpreadsheet(file);
+    } catch (error: unknown) {
+      if (error instanceof SpreadsheetFormatError) return { success: false, assets: [], message: error.message };
+      throw error;
+    }
 
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-
-    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+    if (sheets.length === 0 || sheets.every((sheet) => sheet.rows.length === 0)) {
       return { success: false, assets: [], message: 'O arquivo de planilha está vazio ou corrompido.' };
     }
 
-    const parsedAssets = parseB3Workbook(workbook);
+    const parsedAssets = parseB3Workbook(sheets);
 
     if (parsedAssets.length === 0) {
       return {
@@ -1462,7 +1461,7 @@ export async function parseB3File(file: File): Promise<{
     return {
       success: true,
       assets: parsedAssets,
-      message: `${parsedAssets.length} ativos reais identificados em ${workbook.SheetNames.length} aba(s) da planilha da B3!`,
+      message: `${parsedAssets.length} ativos reais identificados em ${sheets.length} aba(s) da planilha da B3!`,
     };
   } catch (error: any) {
     console.error('Erro ao ler arquivo B3:', error);
