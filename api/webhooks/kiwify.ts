@@ -1,4 +1,3 @@
-import { firestoreDatabaseId } from '../_lib/firebaseAdmin.js';
 import {
   determinePlan,
   eventAction,
@@ -8,15 +7,9 @@ import {
   verifyKiwifySignature,
 } from '../_lib/subscriptions.js';
 
-export async function GET(request: Request) {
-  return Response.json({
-    status: process.env.KIWIFY_WEBHOOK_SECRET ? 'ready' : 'configuration_required',
-    service: 'Jornada da Meta — Webhook Kiwify',
-    webhookUrl: new URL(request.url).origin + '/api/webhooks/kiwify',
-    firebaseAdmin: true,
-    firestoreDatabaseId,
-    signatureValidation: 'HMAC-SHA1',
-  });
+// Public probe: only says whether the webhook is ready, never internal identifiers.
+export async function GET() {
+  return Response.json({ status: process.env.KIWIFY_WEBHOOK_SECRET ? 'ready' : 'configuration_required' });
 }
 
 export async function POST(request: Request) {
