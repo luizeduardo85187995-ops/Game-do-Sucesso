@@ -345,7 +345,7 @@ export default function B3ConnectionModal({ isOpen, onClose }: B3ConnectionModal
                 <li>Acesse o portal da Bolsa: <strong>www.b3.com.br</strong> (ou <strong>www.investidor.b3.com.br</strong>) ou o app da sua corretora e entre com sua conta Gov.br.</li>
                 <li>No menu superior, vá em <strong>Extratos &gt; Posição</strong> ou <strong>Negociação</strong>.</li>
                 <li>Clique em <strong>Exportar em Excel (.xlsx)</strong> ou baixe o extrato/nota em <strong>PDF</strong>.</li>
-                <li>Envie o arquivo baixado (.xlsx, .xls, .csv ou .pdf) no campo abaixo para carregar exatamente suas ações, FIIs e valores reais.</li>
+                <li>Envie o arquivo baixado (.xlsx, .csv ou .pdf) no campo abaixo para carregar exatamente suas ações, FIIs e valores reais.</li>
               </ol>
             </div>
 
@@ -353,14 +353,14 @@ export default function B3ConnectionModal({ isOpen, onClose }: B3ConnectionModal
             <div className="p-6 rounded-2xl border-2 border-dashed border-cyan-500/30 hover:border-cyan-400/60 bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center relative group">
               <input
                 type="file"
-                accept=".xlsx,.xls,.csv,.pdf"
+                accept=".xlsx,.csv,.pdf"
                 onChange={handleFileUpload}
                 disabled={isParsingFile}
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
               <UploadCloud className="w-10 h-10 text-cyan-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
               <div className="text-xs font-bold text-white mb-0.5">
-                {isParsingFile ? 'Lendo e identificando ativos reais no arquivo...' : 'Arraste ou clique para selecionar seu arquivo da B3 (.xlsx, .xls, .csv ou .pdf)'}
+                {isParsingFile ? 'Lendo e identificando ativos reais no arquivo...' : 'Arraste ou clique para selecionar seu arquivo da B3 (.xlsx, .csv ou .pdf)'}
               </div>
               <p className="text-[11px] text-slate-400">
                 Suporta planilhas B3 com múltiplas abas (Ações, FIIs, Tesouro) e extratos/notas de corretagem em PDF
