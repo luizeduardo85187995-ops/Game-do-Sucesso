@@ -137,7 +137,7 @@ test('Dante usa o catálogo: com Groq e Gemini no limite, outro modelo responde 
   const api = await compile('api/dante.ts', [{ name: 'm', setup(b) {
     b.onResolve({ filter: /firebaseAdmin\.js$/ }, () => ({ path: 'a', namespace: 'f' }));
     b.onResolve({ filter: /bankStore\.js$/ }, () => ({ path: 'bs', namespace: 'f' }));
-    b.onLoad({ filter: /^a$/, namespace: 'f' }, () => ({ contents: 'export const adminAuth={verifyIdToken:async()=>({uid:"owner",email:"luizeduardo85187995@gmail.com"})};export const adminDb={};', loader: 'js' }));
+    b.onLoad({ filter: /^a$/, namespace: 'f' }, () => ({ contents: 'export const adminAuth={verifyIdToken:async()=>({uid:"owner",email:"luizeduardo85187995@gmail.com",email_verified:true})};export const adminDb={};', loader: 'js' }));
     b.onLoad({ filter: /^bs$/, namespace: 'f' }, () => ({ contents: 'export const loadOwnerBankData=async()=>null;', loader: 'js' }));
   } }]);
   const previous = { ...process.env };

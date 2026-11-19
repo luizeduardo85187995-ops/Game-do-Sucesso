@@ -138,3 +138,39 @@ test('histórico do Dante descarta respostas de erro e a pergunta que as gerou',
   ]);
   assert.deepEqual(history.map(m => m.content), ['oi', 'Olá!', 'e agora?']);
 });
+
+test('bankStore: busca meses anteriores que faltam numa só janela, isola falhas e respeita o tempo', async () => {
+  const store = await compile('api/_lib/bankStore.ts');
+  const lib = await compile('api/_lib/pluggyPersonal.ts');
+  const env = { OPEN_FINANCE_OWNER_UID: 'owner', PLUGGY_CLIENT_ID: '33333333-3333-3333-3333-333333333333', PLUGGY_CLIENT_SECRET: 'x', PLUGGY_PERSONAL_ITEM_IDS: '11111111-1111-1111-1111-111111111111' };
+  const fp = lib.snapshotFingerprint(lib.readPersonalConfig(env));
+  const makeDb = () => {
+    const data = new Map();
+    const ref = path => ({ path, collection: n => ({ doc: id => ref(`${path}/${n}/${id}`) }), get: async () => ({ data: () => data.get(path) }), set: async v => data.set(path, v) });
+    return { data, collection: n => ({ doc: id => ref(`${n}/${id}`) }), runTransaction: async fn => fn({ get: async r => ({ data: () => data.get(r.path) }), set: (r, v) => data.set(r.path, { ...(data.get(r.path) || {}), ...v }) }) };
+  };
+  const [current, prev1, prev2] = store.lastMonths(3);
+
+  // Current month fresh, two past months missing: both fetched; one failing doesn't stop the other.
+  let db = makeDb();
+  db.data.set(`openFinancePrivate/owner/months/${current}`, { fingerprint: fp, snapshot: snapshot(current, []) });
+  const fetched = [];
+  const out = await store.loadOwnerBankData(db, 'owner', env, 3, async (_c, m) => { fetched.push(m); if (m === prev1) throw new Error('falhou'); return snapshot(m, []); });
+  assert.deepEqual(fetched, [prev1, prev2]);
+  assert.deepEqual(out.missingMonths, [prev1]);
+  assert.equal(out.snapshots.length, 2);
+  assert.ok(db.data.get(`openFinancePrivate/owner/months/${prev2}`), 'mês buscado fica salvo e não é buscado de novo');
+
+  // Lease taken less than a minute ago: no provider call at all.
+  db = makeDb();
+  db.data.set('openFinancePrivate/owner', { lastAttemptAt: Date.now() });
+  let calls = 0;
+  await store.loadOwnerBankData(db, 'owner', env, 3, async (_c, m) => { calls++; return snapshot(m, []); });
+  assert.equal(calls, 0);
+
+  // Time budget: after 15s the remaining months wait for the next conversation.
+  db = makeDb();
+  let clock = 1_000_000; calls = 0;
+  await store.loadOwnerBankData(db, 'owner', env, 3, async (_c, m) => { calls++; clock += 16_000; return snapshot(m, []); }, () => clock);
+  assert.equal(calls, 1);
+});
