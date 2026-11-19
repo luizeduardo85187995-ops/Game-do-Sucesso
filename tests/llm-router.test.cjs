@@ -43,7 +43,7 @@ test('acabou o limite de um, responde o próximo; e o que estourou entra em espe
   assert.equal(result.provider, 'gemini');
   assert.deepEqual(result.attempts.map(a => `${a.provider}:${a.outcome}`), ['groq:rate_limited', 'gemini:ok']);
   assert.equal(calls[1].auth, 'Bearer gem-test-secret', 'cada provedor recebe só a própria chave');
-  assert.equal(calls[1].body.model, 'gemini-2.5-flash');
+  assert.equal(calls[1].body.model, 'gemini-3.8-flash', 'modelo Gemini atual com plano gratuito');
   // Second question: Groq is cooling down, so it is skipped without a network call.
   calls.length = 0;
   const again = await r.chatWithFallback(providers, req, { deadlineMs: Date.now() + 40_000, fetcher });

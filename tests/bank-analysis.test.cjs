@@ -81,6 +81,8 @@ test('raio-X: totais corretos, Pix por destinatário, perguntas só do que falta
   assert(unexplained.includes('Maria'));
   assert(!text.includes('</EXTRATO_BANCARIO>'), 'texto do banco não pode fechar o bloco de dados');
   assert.equal(a.buildBankAnalysis([], {}), 'Nenhum extrato bancário consultado ainda.');
+  assert.equal(a.institutionOf({ institution: 'MeuPluggy', name: 'Nu Pagamentos S.A.' }), 'Nu Pagamentos S.A.');
+  assert.equal(a.institutionOf({ institution: 'Nubank', name: 'Conta' }), 'Nubank');
 });
 
 test('bankStore: só o titular, cache da configuração atual e notas em lista', async () => {
