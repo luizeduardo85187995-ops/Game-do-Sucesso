@@ -149,6 +149,26 @@ const INITIAL_B3_INTEGRATION: B3IntegrationState = {
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
+/**
+ * Removes this device's copies of an account's private data (Dante chat history always; the finance
+ * state and its recovery copy only when `includeFinanceState`, i.e. the cloud already has them).
+ */
+export function clearLocalAccountData(uid: string, includeFinanceState: boolean): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.includes(uid)) keys.push(key);
+    }
+    for (const key of keys) {
+      const isFinanceState = key.startsWith(USER_STORAGE_KEY_PREFIX);
+      if (!isFinanceState || includeFinanceState) localStorage.removeItem(key);
+    }
+  } catch (error: unknown) {
+    console.warn('Não foi possível limpar os dados locais da conta:', error);
+  }
+}
+
 type StoredAnnotation = BankTxAnnotation & { key: string };
 
 function annotationsToList(map: Record<string, BankTxAnnotation>): StoredAnnotation[] {
@@ -246,12 +266,22 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (parsed.b3Integration) setB3Integration(parsed.b3Integration);
   };
 
+  // Mirror of cloudSyncStatus readable inside effects without re-running them.
+  const cloudSyncStatusRef = useRef(cloudSyncStatus);
+  useEffect(() => { cloudSyncStatusRef.current = cloudSyncStatus; }, [cloudSyncStatus]);
+
   // 1. Carregamento e isolamento estrito por identidade (visitante ou UID autenticado)
   useEffect(() => {
     if (authLoading) return;
 
     let isCancelled = false;
     const newUid = user ? user.uid : null;
+    const previousUid = currentIdentityRef.current;
+    // On logout, wipe this device's copy of the account only when the cloud already holds it;
+    // otherwise the local copy is the only one with the latest changes and must survive.
+    if (previousUid && previousUid !== newUid) {
+      clearLocalAccountData(previousUid, cloudSyncStatusRef.current === 'synced');
+    }
     if (cloudSaveTimerRef.current) clearTimeout(cloudSaveTimerRef.current);
     isSyncReadyRef.current = false;
     skipHydrationSaveRef.current = true;
