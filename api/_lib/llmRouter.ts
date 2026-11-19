@@ -44,7 +44,7 @@ const SPECS: Record<ProviderId, ProviderSpec> = {
   },
   gemini: {
     label: 'Google Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', keyEnv: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
-    modelEnv: 'GEMINI_MODEL', defaultModel: 'gemini-3.8-flash', /* 2.5 retired (404) in 2026; 3.8 Flash has a free tier */ maxOutEnv: 'GEMINI_MAX_OUTPUT_TOKENS', defaultMaxOut: 4096, reasoning: 'gemini',
+    modelEnv: 'GEMINI_MODEL', defaultModel: 'gemini-3.8-flash', /* 2.5 retired (404) in 2026; 3.8 Flash has a free tier */ maxOutEnv: 'GEMINI_MAX_OUTPUT_TOKENS', defaultMaxOut: 2048, reasoning: 'gemini',
   },
   cerebras: {
     label: 'Cerebras', url: 'https://api.cerebras.ai/v1/chat/completions', keyEnv: ['CEREBRAS_API_KEY'],
@@ -155,8 +155,10 @@ export async function chatWithFallback(
   const attempts: Attempt[] = [];
   let shortestRetry: number | null = null;
 
-  for (const p of providers) {
+  for (const [index, p] of providers.entries()) {
     const started = now();
+    // The last provider has nobody to fall back to: give it all the remaining time.
+    const isLast = index === providers.length - 1;
     if ((cooldownUntil.get(p.id) ?? 0) > started) {
       attempts.push({ provider: p.id, model: p.model, outcome: 'skipped_cooldown', durationMs: 0 });
       const left = Math.ceil(((cooldownUntil.get(p.id) ?? 0) - started) / 1000);
@@ -169,7 +171,7 @@ export async function chatWithFallback(
     // One retry on the same provider only for reasoning-hint rejection (400); everything else moves on.
     for (const reasoningOff of p.reasoning === 'none' ? [false] : req.deep ? [true, false] : [false]) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), Math.min(options.perAttemptTimeoutMs ?? 25_000, options.deadlineMs - now()));
+      const timer = setTimeout(() => controller.abort(), isLast ? options.deadlineMs - now() : Math.min(options.perAttemptTimeoutMs ?? 25_000, options.deadlineMs - now()));
       const t0 = now();
       let res: Response;
       try {
