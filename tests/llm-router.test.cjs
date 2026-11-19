@@ -98,6 +98,13 @@ test('não começa tentativa nova perto do limite de tempo da função', async (
   const res = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, perAttemptTimeoutMs: 50, fetcher: hang });
   assert.equal(res.text, 'Gemini salvou');
   assert.equal(res.attempts[0].outcome, 'timeout');
+  // The last provider is not cut by the per-attempt timeout: it may use the remaining deadline.
+  const slowLast = (url) => url.includes('openrouter')
+    ? new Promise(resolve => setTimeout(() => resolve(ok('lento mas chegou')), 120))
+    : Promise.resolve(err(429));
+  r.resetCooldowns();
+  const last = await r.chatWithFallback(r.configuredProviders(env), req, { deadlineMs: Date.now() + 40_000, perAttemptTimeoutMs: 50, fetcher: slowLast });
+  assert.equal(last.text, 'lento mas chegou');
 });
 
 test('Dante usa a cadeia: Groq no limite, Gemini responde e o app recebe o nome do provedor', async () => {
