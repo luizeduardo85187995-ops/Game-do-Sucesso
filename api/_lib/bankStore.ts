@@ -1,8 +1,9 @@
 import type { BankSnapshot, BankTxAnnotation } from '../../src/types/openFinance.js';
-import { fetchPersonalSnapshot, readPersonalConfig, snapshotFingerprint } from './pluggyPersonal.js';
+import { fetchPersonalSnapshot, readPersonalConfig, snapshotFingerprint, type PersonalConfig } from './pluggyPersonal.js';
 
 const REFRESH_AFTER_MS = 12 * 60 * 60 * 1000;
 const COOLDOWN_MS = 60 * 1000;
+const FETCH_BUDGET_MS = 15 * 1000;
 const MAX_ANNOTATIONS = 5000;
 
 type AdminDb = typeof import('./firebaseAdmin.js')['adminDb'];
@@ -44,7 +45,14 @@ function sanitizeAnnotations(raw: unknown): Record<string, BankTxAnnotation> {
  * older than 12h, respecting the same per-owner cooldown used by /api/open-finance.
  * Returns null when the caller is not the configured owner or the integration is not configured.
  */
-export async function loadOwnerBankData(adminDb: AdminDb, uid: string, env: NodeJS.ProcessEnv = process.env, months = 3): Promise<OwnerBankData | null> {
+export async function loadOwnerBankData(
+  adminDb: AdminDb,
+  uid: string,
+  env: NodeJS.ProcessEnv = process.env,
+  months = 3,
+  fetcher: (config: PersonalConfig, month: string) => Promise<BankSnapshot> = (config, month) => fetchPersonalSnapshot(config, month),
+  now: () => number = Date.now,
+): Promise<OwnerBankData | null> {
   const owner = env.OPEN_FINANCE_OWNER_UID?.trim();
   if (!owner || uid !== owner) return null;
   const config = readPersonalConfig(env);
@@ -60,23 +68,38 @@ export async function loadOwnerBankData(adminDb: AdminDb, uid: string, env: Node
     if (data?.fingerprint === fingerprint && data.snapshot) byMonth.set(wanted[i], data.snapshot as BankSnapshot);
   });
 
+  // The current month refreshes after 12h; a past month is fetched once when missing (it no longer changes).
   const current = wanted[0];
   const cached = byMonth.get(current);
-  if (!cached || Date.now() - Date.parse(cached.fetchedAt) > REFRESH_AFTER_MS) {
+  const toFetch = [
+    ...(!cached || now() - Date.parse(cached.fetchedAt) > REFRESH_AFTER_MS ? [current] : []),
+    ...wanted.slice(1).filter(m => !byMonth.has(m)),
+  ];
+  if (toFetch.length) {
     try {
+      // One provider read window per minute per owner, shared with /api/open-finance.
       const allowed = await adminDb.runTransaction(async tx => {
         const state = (await tx.get(userRoot)).data();
-        if (typeof state?.lastAttemptAt === 'number' && Date.now() - state.lastAttemptAt < COOLDOWN_MS) return false;
-        tx.set(userRoot, { lastAttemptAt: Date.now() }, { merge: true });
+        if (typeof state?.lastAttemptAt === 'number' && now() - state.lastAttemptAt < COOLDOWN_MS) return false;
+        tx.set(userRoot, { lastAttemptAt: now() }, { merge: true });
         return true;
       });
       if (allowed) {
-        const fresh = await fetchPersonalSnapshot(config, current);
-        await userRoot.collection('months').doc(current).set({ fingerprint, snapshot: fresh });
-        byMonth.set(current, fresh);
+        const started = now();
+        for (const month of toFetch) {
+          // Keep the conversation responsive: stop backfilling after ~15s; the rest comes next time.
+          if (now() - started > FETCH_BUDGET_MS) break;
+          try {
+            const fresh = await fetcher(config, month);
+            await userRoot.collection('months').doc(month).set({ fingerprint, snapshot: fresh });
+            byMonth.set(month, fresh);
+          } catch {
+            // One month failing must not block the others or the conversation.
+          }
+        }
       }
     } catch {
-      // Provider failure must not block the conversation: the analysis states which months are missing.
+      // Provider/lease failure must not block the conversation: the analysis states which months are missing.
     }
   }
 
