@@ -1,9 +1,8 @@
 import { adminAuth, adminDb } from './_lib/firebaseAdmin.js';
 import { buildBankAnalysis } from './_lib/bankAnalysis.js';
 import { loadOwnerBankData } from './_lib/bankStore.js';
+import { AllProvidersFailedError, chatWithFallback, configuredProviders, describeProviders } from './_lib/llmRouter.js';
 
-const DEFAULT_MODEL = 'qwen/qwen3.8-27b';
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_ADMIN_EMAILS = [
   'luiz.honorato@lcmconstrucao.com.br',
   'luizeduardo85187995@gmail.com',
@@ -554,13 +553,12 @@ async function authorize(request: Request) {
 }
 
 export async function GET() {
-  const model = (process.env.GROQ_MODEL || DEFAULT_MODEL).trim();
+  const providers = describeProviders(configuredProviders());
   return Response.json({
-    status: process.env.GROQ_API_KEY ? 'ready' : 'configuration_required',
+    status: providers.length ? 'ready' : 'configuration_required',
     service: 'Dante IA',
-    provider: 'Groq',
-    model,
-    apiKeyConfigured: Boolean((process.env.GROQ_API_KEY || '').trim()),
+    // Fallback order: when one free tier is exhausted the next one answers.
+    providers,
     modes: ['equilibrado', 'vira_homem'],
   });
 }
@@ -576,9 +574,9 @@ export async function POST(request: Request) {
     return Response.json({ success: false, message: 'Contexto financeiro muito grande para esta consulta.' }, { status: 413 });
   }
 
-  const apiKey = (process.env.GROQ_API_KEY || '').trim();
-  if (!apiKey) {
-    return Response.json({ success: false, message: 'GROQ_API_KEY não configurada no servidor.' }, { status: 503 });
+  const providers = configuredProviders();
+  if (!providers.length) {
+    return Response.json({ success: false, message: 'Nenhuma chave de IA configurada no servidor.' }, { status: 503 });
   }
 
   let body: any;
@@ -624,92 +622,34 @@ export async function POST(request: Request) {
     bankAnalysis = 'Extrato bancário indisponível nesta consulta. Não tire conclusões sobre as contas conectadas.';
   }
   const systemPrompt = buildSystemPrompt(context, userMessage, mode, bankAnalysis);
-  const model = (process.env.GROQ_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 
   const deepQuestion = /(analis|por que|porque|estrateg|planej|compar|onde estou errando|habito|hábito|evolu|tendenc|tendênc|extrato|pix|banco|nubank)/i.test(userMessage);
-  // Groq free tier rejects any request reserving more than its output-tokens-per-minute cap (1000).
-  // Raise GROQ_MAX_OUTPUT_TOKENS after upgrading the provider plan.
-  const maxOutputTokens = Math.min(8192, Math.max(300, Math.floor(Number(process.env.GROQ_MAX_OUTPUT_TOKENS) || 1000)));
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), deepQuestion ? 40_000 : 20_000);
   const startedAt = Date.now();
-
   try {
-    const callModel = (reasoningEffort: 'none' | 'low') => fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...history,
-          { role: 'user', content: userMessage },
-        ],
-        temperature: mode === 'vira_homem' ? 0.68 : 0.52,
-        top_p: 0.86,
-        max_completion_tokens: maxOutputTokens,
-        reasoning_effort: reasoningEffort,
-      }),
-      signal: controller.signal,
+    const result = await chatWithFallback(providers, {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...history,
+        { role: 'user', content: userMessage },
+      ],
+      temperature: mode === 'vira_homem' ? 0.68 : 0.52,
+      deep: deepQuestion,
+    }, {
+      // Function limit is 60s (vercel.json); the browser waits 55s. Never start an attempt after ~48s.
+      deadlineMs: startedAt + 48_000,
+      perAttemptTimeoutMs: deepQuestion ? 30_000 : 18_000,
     });
 
-    // Reasoning tokens count toward the free tier's 1k output-tokens/min cap. The bank numbers arrive
-    // precomputed, so deep analyses run without hidden reasoning; models that reject 'none' retry with 'low'.
-    let response = await callModel(deepQuestion ? 'none' : 'low');
-    if (response.status === 400 && deepQuestion) {
-      console.warn('[Dante/Groq] reasoning_effort=none recusado; tentando low');
-      response = await callModel('low');
-    }
-
-    const raw = await response.text();
-    let payload: any = {};
-    try {
-      payload = raw ? JSON.parse(raw) : {};
-    } catch {
-      payload = {};
-    }
-
-    if (!response.ok) {
-      const retryAfter = response.headers.get('retry-after');
-      const providerMessage = safeText(payload?.error?.message, 400);
-      console.warn('[Dante/Groq] falha', response.status, providerMessage || raw.slice(0, 300));
-      return Response.json(
-        {
-          success: false,
-          message:
-            response.status === 429 || response.status === 413
-              ? `O plano gratuito da IA aceita uma análise grande por minuto. Tente de novo em ${Math.min(60, Math.ceil(Number(retryAfter) || 60))} segundos.`
-              : 'O Dante está temporariamente indisponível. Tente novamente em instantes.',
-          retryAfter: retryAfter || undefined,
-        },
-        { status: response.status === 429 || response.status === 413 ? 429 : 502 }
-      );
-    }
-
-    const text = safeText(payload?.choices?.[0]?.message?.content, 14_000);
-    if (!text) {
-      const finishReason = safeText(payload?.choices?.[0]?.finish_reason, 30);
-      console.warn('[Dante/Groq] resposta vazia', { finishReason, completionTokens: payload?.usage?.completion_tokens });
-      return Response.json({
-        success: false,
-        message: finishReason === 'length'
-          ? 'A análise ficou longa demais para uma resposta. Peça uma parte por vez (ex.: "analise só os Pix").'
-          : 'A IA respondeu sem conteúdo.',
-      }, { status: 502 });
-    }
-
-    const usage = payload?.usage || {};
-    console.info('[Dante/Groq] ok', {
+    const text = safeText(result.text, 14_000);
+    console.info('[Dante/IA] ok', {
       uid: access.uid,
       mode,
-      model,
+      provider: result.provider,
+      model: result.model,
+      attempts: result.attempts.map((a) => `${a.provider}:${a.outcome}`).join(' > '),
       durationMs: Date.now() - startedAt,
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
-      totalTokens: usage.total_tokens,
+      promptTokens: result.usage.promptTokens,
+      completionTokens: result.usage.completionTokens,
       transactionsAnalyzed: (context.transactions || []).length,
       bankChars: bankAnalysis.length,
       systemChars: systemPrompt.length,
@@ -718,28 +658,29 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       text,
-      model,
+      provider: result.providerLabel,
+      model: result.model,
       mode,
       durationMs: Date.now() - startedAt,
-      usage: {
-        promptTokens: usage.prompt_tokens ?? null,
-        completionTokens: usage.completion_tokens ?? null,
-        totalTokens: usage.total_tokens ?? null,
-      },
+      usage: result.usage,
     });
-  } catch (error: any) {
-    const timedOut = error?.name === 'AbortError';
-    console.warn('[Dante/Groq] exceção', timedOut ? 'timeout' : error?.message || error);
-    return Response.json(
-      {
-        success: false,
-        message: timedOut
-          ? 'O Dante demorou mais que o esperado. Tente novamente.'
-          : 'Não foi possível consultar a IA neste momento.',
-      },
-      { status: 504 }
-    );
-  } finally {
-    clearTimeout(timeout);
+  } catch (error: unknown) {
+    if (error instanceof AllProvidersFailedError) {
+      console.warn('[Dante/IA] todos os provedores falharam', error.attempts.map((a) => `${a.provider}:${a.outcome}${a.status ? `(${a.status})` : ''}`).join(' > '));
+      const limited = error.attempts.length > 0 && error.attempts.every((a) => a.outcome === 'rate_limited' || a.outcome === 'too_large' || a.outcome === 'skipped_cooldown');
+      const wait = Math.min(60, error.retryAfterSeconds ?? 60);
+      return Response.json(
+        {
+          success: false,
+          message: limited
+            ? `Todas as IAs gratuitas configuradas atingiram o limite agora. Tente de novo em ${wait} segundos.`
+            : 'O Dante está temporariamente indisponível. Tente novamente em instantes.',
+          retryAfter: limited ? String(wait) : undefined,
+        },
+        { status: limited ? 429 : 502 },
+      );
+    }
+    console.warn('[Dante/IA] exceção', error instanceof Error ? error.name : 'erro');
+    return Response.json({ success: false, message: 'Não foi possível consultar a IA neste momento.' }, { status: 504 });
   }
 }
